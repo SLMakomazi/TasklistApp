@@ -35,20 +35,31 @@ public class TaskController {
         return taskRepository.save(task);
     }
 
-    // Mark as complete
-    @PutMapping("/{id}/complete")
-    public ResponseEntity<Task> markComplete(@PathVariable Long id) {
-        return taskRepository.findById(id).map(task -> {
-            task.setCompleted(true);
+    // Get task by ID
+    @GetMapping("/{taskId}")
+    public ResponseEntity<Task> getTaskById(@PathVariable Long taskId) {
+        return taskRepository.findById(taskId)
+                .map(task -> ResponseEntity.ok(task))
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    // Update entire task
+    @PutMapping("/{taskId}")
+    public ResponseEntity<Task> updateTask(@PathVariable Long taskId, @RequestBody Task taskDetails) {
+        return taskRepository.findById(taskId).map(task -> {
+            task.setTitle(taskDetails.getTitle());
+            task.setDescription(taskDetails.getDescription());
+            task.setCompleted(taskDetails.isCompleted());
+            task.setDueDate(taskDetails.getDueDate());
             return ResponseEntity.ok(taskRepository.save(task));
         }).orElse(ResponseEntity.notFound().build());
     }
 
     // Delete task
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteTask(@PathVariable Long id) {
-        if (taskRepository.existsById(id)) {
-            taskRepository.deleteById(id);
+    @DeleteMapping("/{taskId}")
+    public ResponseEntity<Void> deleteTask(@PathVariable Long taskId) {
+        if (taskRepository.existsById(taskId)) {
+            taskRepository.deleteById(taskId);
             return ResponseEntity.noContent().build();
         }
         return ResponseEntity.notFound().build();
