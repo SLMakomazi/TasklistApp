@@ -10,7 +10,7 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-    
+
     services:
       postgres:
         image: postgres:16
@@ -20,11 +20,16 @@ jobs:
           POSTGRES_DB: testdb
           POSTGRES_USER: test
           POSTGRES_PASSWORD: test
+        options: >-
+          --health-cmd="pg_isready -U test -d testdb"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
 
     steps:
       - name: 🛑 Checkout Code
         uses: actions/checkout@v4
-        
+
       - name: 💾 Cache Maven Dependencies
         uses: actions/cache@v4
         with:
@@ -44,11 +49,19 @@ jobs:
         run: mvn -B clean package
 
       - name: 🧪 Run Integration Tests (Requires DB Service)
+        env:
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/testdb
+          SPRING_DATASOURCE_USERNAME: test
+          SPRING_DATASOURCE_PASSWORD: test
         run: |
-          mvn -B test -Dspring.datasource.url="jdbc:postgresql://localhost:5432/testdb" \
-            -Dspring.datasource.username="test" \
-            -Dspring.datasource.password="test"
-            
+          echo "Waiting for Postgres to be healthy..."
+          for i in {1..10}; do
+            pg_isready -h localhost -p 5432 -U test -d testdb && break
+            echo "Database not ready yet... retrying in 5s"
+            sleep 5
+          done
+          mvn -B test
+
       - name: 🐳 Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -58,7 +71,7 @@ jobs:
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
-          
+
       - name: 🏗️ Build and Push Docker Image to Hub
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: docker/build-push-action@v5
