@@ -1,0 +1,37 @@
+[Unit]
+Description=Tasklist Spring Boot Application
+After=network.target
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=tasklist
+Group=tasklist
+ExecStart=/usr/bin/java -jar /opt/tasklist/app/tasklist-api.jar
+ExecStop=/bin/kill -TERM $MAINPID
+Restart=always
+RestartSec=10
+
+# Environment variables
+Environment=SPRING_DATASOURCE_URL=jdbc:postgresql://192.168.18.3:5432/tasklistdb
+Environment=SPRING_DATASOURCE_USERNAME=postgres
+Environment=SPRING_DATASOURCE_PASSWORD=admin
+Environment=SPRING_JPA_HIBERNATE_DDL_AUTO=update
+Environment=SPRING_JPA_SHOW_SQL=true
+Environment=SERVER_PORT=8080
+Environment=LOGGING_FILE_NAME=/opt/tasklist/logs/tasklist.log
+Environment=LOGGING_LEVEL_COM_TASKLIST=DEBUG
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/tasklist/logs /tmp
+
+# Resource limits
+LimitNOFILE=65536
+MemoryLimit=512M
+
+[Install]
+WantedBy=multi-user.target

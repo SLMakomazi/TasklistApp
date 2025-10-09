@@ -3,12 +3,14 @@ services:
   tasklist-postgres:
     image: postgres:16
     container_name: tasklist-postgres
+    # Added restart policy for reliability
+    restart: always 
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: admin
       POSTGRES_DB: tasklistdb
     ports:
-      - "5432:5432"      # Expose port to host for WSL access
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -16,6 +18,12 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      
+    # CRITICAL FIX FOR EXTERNAL CONNECTIONS: 
+    # Forces PostgreSQL to listen on all interfaces and allow MD5 authentication 
+    # from any host (0.0.0.0/0). This is required when connecting from the 
+    # Windows Host IP (192.168.18.3) or an external VM.
+    command: postgres -c 'listen_addresses=*' -c 'host all all 0.0.0.0/0 md5'
 
   # Spring Boot API Service
   tasklist-api:
@@ -26,7 +34,7 @@ services:
     ports:
       - "8080:8080"
     environment:
-      # Database connection variables
+      # Database connection variables (using the container's internal network name)
       DB_URL: jdbc:postgresql://tasklist-postgres:5432/tasklistdb
       DB_USERNAME: postgres
       DB_PASSWORD: admin

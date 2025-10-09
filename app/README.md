@@ -5,6 +5,8 @@
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.4-brightgreen)
 ![Java](https://img.shields.io/badge/Java-17-orange)
 ![Maven](https://img.shields.io/badge/Maven-3.8-blue)
+![Docker](https://img.shields.io/badge/Docker-Ready-blue)
+![VM](https://img.shields.io/badge/VM-Deployed-green)
 ![Status](https://img.shields.io/badge/Status-Operational-success)
 
 ## 📋 Table of Contents
@@ -26,6 +28,7 @@
 - **Database**: PostgreSQL 16 with JPA/Hibernate ORM
 - **Documentation**: OpenAPI 3.0 / Swagger UI
 - **Containerization**: Multi-stage Docker builds
+- **Deployment**: Docker containers + VM systemd service
 - **Configuration**: Environment variables (no hardcoded values)
 
 ### Core Features (All Operational)
@@ -43,25 +46,27 @@
 
 | Component | Status | Details |
 |-----------|--------|---------|
-| **Spring Boot Application** | ✅ Running | Version 3.3.4, Port 8080 |
+| **Spring Boot Application (Docker)** | ✅ Running | Version 3.3.4, Port 8080 |
+| **Spring Boot Application (VM)** | ✅ Running | Systemd service, Port 8080 |
 | **Database Connection** | ✅ Connected | PostgreSQL 16, HikariCP pool |
 | **API Endpoints** | ✅ Active | All CRUD operations functional |
-| **Swagger Documentation** | ✅ Available | Interactive at `/swagger-ui.html` |
+| **Swagger Documentation** | ✅ Available | Interactive at both deployments |
 | **Health Monitoring** | ✅ Enabled | Actuator endpoints available |
 | **Environment Config** | ✅ Working | All variables loaded from `.env` |
+| **Cross-Deployment** | ✅ Verified | Both APIs access same database |
 
 ### **📊 Performance Metrics**
-- **Startup Time**: 16.6 seconds
-- **Memory Usage**: Optimized multi-stage Docker build
+- **Startup Time**: 16.6 seconds (Docker), ~3 seconds (VM)
+- **Memory Usage**: Optimized multi-stage Docker build + systemd limits
 - **Database Pool**: HikariCP with PostgreSQL
 - **Response Time**: Sub-second API responses
 
 ### **🌐 Access Points (All Active)**
-- **Application**: http://localhost:8080
-- **API Base**: http://localhost:8080/api/tasks
-- **Swagger UI**: http://localhost:8080/swagger-ui.html
-- **API Documentation**: http://localhost:8080/api-docs
-- **Health Check**: http://localhost:8080/actuator/health
+- **Docker API**: http://localhost:8080/api/tasks
+- **VM API**: http://172.18.253.249:8080/api/tasks
+- **Docker Swagger**: http://localhost:8080/swagger-ui.html
+- **VM Swagger**: http://172.18.253.249:8080/swagger-ui.html
+- **Health Check**: http://localhost:8080/actuator/health (both deployments)
 
 ## 📁 Project Structure
 
