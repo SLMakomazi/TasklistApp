@@ -76,14 +76,12 @@ app/                              # 💻 Spring Boot Application
         │   ├── 📄 TasklistApplication.java     # 🚀 Main application class
         │   ├── 📁 controller/                  # 🌐 REST Controllers
         │   │   └── 📄 TaskController.java      # 📋 Task management endpoints
-        │   ├── 📁 entity/                      # 💾 JPA Entities
+        │   ├── 📁 model/                       # 💾 JPA Entities
         │   │   └── 📄 Task.java               # 📋 Task entity model
         │   ├── 📁 repository/                  # 🗄️ Data Repositories
         │   │   └── 📄 TaskRepository.java     # 💾 Task data access
-        │   ├── 📁 service/                     # 🔧 Business Logic Layer
-        │   │   └── 📄 TaskService.java        # 🔧 Task business logic
-        │   └── 📁 dto/                         # 📋 Data Transfer Objects
-        │       └── 📄 TaskDTO.java            # 📋 Task data transfer
+        │   └── 📁 config/                      # ⚙️ Configuration
+        │       └── 📄 OpenApiConfig.java      # 🔧 OpenAPI configuration
         └── 📁 resources/
             ├── 📄 application.properties       # ⚙️ App configuration (env vars)
             └── 📄 logback-spring.xml           # 📝 Logging configuration
@@ -418,7 +416,7 @@ curl http://localhost:8080/actuator/metrics/hikaricp.connections
 
 - **Main Project**: [../README.md](../README.md) - Complete project overview
 - **Database Setup**: [../database/README.md](../database/README.md) - Database management
-- **API Reference**: [../docs/API.md](../docs/API.md) - Detailed API documentation
+- **VM Deployment**: [../vm/README.md](../vm/README.md) - VM deployment guide
 
 ---
 

@@ -14,8 +14,9 @@
 - [✨ Features](#-features)
 - [🚀 Current Status](#-current-status)
 - [📁 Project Structure](#-project-structure)
-- [🔧 Development Setup](#-development-setup)
-- [🐳 Production Deployment](#-production-deployment)
+- [🚀 Setup and Run](#-setup-and-run)
+- [✅ Persistence Verification](#-persistence-verification)
+- [🖥️ VM Deployment](#-vm-deployment)
 - [📚 API Documentation](#-api-documentation)
 - [🧪 Testing](#-testing)
 - [🤝 Contributing](#-contributing)
@@ -107,28 +108,34 @@ TasklistApp/                     # 🚀 Main Project Directory
 │           ├── 📁 java/com/tasklist/
 │           │   ├── 📄 TasklistApplication.java
 │           │   ├── 📁 controller/     # 🌐 REST Controllers
-│           │   ├── 📁 entity/         # 💾 JPA Entities
+│           │   ├── 📁 model/          # 💾 JPA Entities
 │           │   ├── 📁 repository/     # 🗄️ Data Repositories
-│           │   ├── 📁 service/        # 🔧 Business Logic
-│           │   └── 📁 dto/            # 📋 Data Transfer Objects
+│           │   └── 📁 config/         # ⚙️ Configuration
 │           └── 📁 resources/
 │               ├── 📄 application.properties  # ⚙️ App configuration
 │               └── 📄 logback-spring.xml      # 📝 Logging config
 ├── 📁 database/               # 🗄️ Database Layer
-│   ├── 📄 README.md          # 💾 Database management guide
-│   └── 📄 docker-compose.yml # 🐳 Legacy DB setup (deprecated)
-└── 📁 docs/                  # 📚 Documentation
-    └── 📄 API.md             # 📋 Detailed API reference
+│   └── 📄 README.md          # 💾 Database management guide
+└── 📁 vm/                    # 🖥️ VM Deployment
+    └── 📄 README.md          # 🖥️ VM deployment guide
 ```
 
-## 🚀 Quick Start
+## 🚀 Setup and Run
 
-### **One-Command Deployment**
+### **Prerequisites**
+- **Docker** and **Docker Compose** installed
+- **Git** for cloning the repository
+
+### **Quick Start (One Command)**
 ```bash
-# Start entire application (database + API)
+# 1. Clone the repository
+git clone <repository-url>
+cd TasklistApp
+
+# 2. Start entire application (database + API)
 docker-compose up --build
 
-# Or run in background
+# 3. Or run in background for development
 docker-compose up -d --build
 ```
 
@@ -138,85 +145,62 @@ docker-compose up -d --build
 - **🔍 API Docs**: http://localhost:8080/api-docs
 - **❤️ Health Check**: http://localhost:8080/actuator/health
 
-### **Test API Endpoints**
+### **Default Application URLs**
 ```bash
-# Get all tasks
-curl http://localhost:8080/api/tasks
+# API Endpoints
+GET  http://localhost:8080/api/tasks          # Get all tasks
+POST http://localhost:8080/api/tasks          # Create new task
+GET  http://localhost:8080/api/tasks/{id}     # Get task by ID
+PUT  http://localhost:8080/api/tasks/{id}     # Update task
+DELETE http://localhost:8080/api/tasks/{id}  # Delete task
 
-# Create new task
-curl -X POST http://localhost:8080/api/tasks \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "Complete documentation",
-    "description": "Update all README files",
-    "completed": false,
-    "dueDate": "2024-12-31"
-  }'
-
-# Update task
-curl -X PUT http://localhost:8080/api/tasks/1 \
-  -H "Content-Type: application/json" \
-  -d '{"completed": true}'
+# Documentation & Monitoring
+Swagger UI: http://localhost:8080/swagger-ui.html
+API Docs:   http://localhost:8080/api-docs
+Health:     http://localhost:8080/actuator/health
 ```
 
-## 🔧 Development Setup
-
-### **Environment Variables (Required)**
-Create `.env` file in project root:
-```env
-# Database Configuration
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=admin
-POSTGRES_DB=tasklistdb
-POSTGRES_PORT=5432
-
-# Application Configuration
-DB_URL=jdbc:postgresql://tasklist-postgres:5432/tasklistdb
-DB_USERNAME=postgres
-DB_PASSWORD=admin
-API_PORT=8080
-SERVER_PORT=8080
-
-# JPA Settings
-JPA_DDL_AUTO=update
-JPA_SHOW_SQL=true
-
-# Logging
-LOG_LEVEL_SPRING=INFO
-LOG_LEVEL_TASKLIST=DEBUG
-LOG_FILE=logs/tasklist.log
-```
-
-### **Start Development Environment**
+### **PostgreSQL Access**
 ```bash
-# Load environment and start
-export $(cat .env | xargs) && docker-compose up --build
+# Connect to database directly
+docker exec -it tasklist-postgres psql -U postgres -d tasklistdb
 
-# Or use docker-compose with env file
-docker-compose --env-file .env up --build
+# Check tables
+\dt
+
+# View data
+SELECT * FROM task;
 ```
 
-## 🐳 Production Deployment
+## ✅ Persistence Verification
 
-### **Multi-Instance Architecture Ready**
-- **Local Development**: Docker containers on host machine
-- **VM Deployment**: WSL instance connecting to same database
-- **Production**: Multiple instances sharing persistent database
-
-### **Environment-Specific Configuration**
+### **Verify Data Consistency Between API and Database**
 ```bash
-# Different .env files per environment
-cp .env .env.production
-# Edit .env.production with production values
+# From database
+docker exec -it tasklist-postgres psql -U postgres -d tasklistdb -c "SELECT id, title, completed FROM task ORDER BY id;"
 
-# Deploy to production
-docker-compose --env-file .env.production up -d
+# From API
+curl -s http://localhost:8080/api/tasks | jq '.[] | {id, title, completed}'
 ```
 
-### **Database Persistence**
-- **Docker Volumes**: `tasklistapp_postgres_data`
-- **Data Survival**: Container restarts, removals, crashes
-- **Backup Ready**: Easy backup and restore operations
+**Expected Result:** Both commands should return identical data, confirming persistence works correctly.
+
+## 🖥️ VM Deployment
+
+### **Deploy Updated Builds to VM**
+```bash
+# 1. Copy new JAR to VM
+scp -i path/to/your-key target/tasklist-api-0.0.1-SNAPSHOT.jar tasklist@<VM_IP>:/tmp/
+
+# 2. Deploy and restart service
+ssh -i path/to/your-key tasklist@<VM_IP> "sudo mv /tmp/tasklist-api-0.0.1-SNAPSHOT.jar /opt/tasklist/app/tasklist-api.jar && sudo systemctl restart tasklist && sudo journalctl -u tasklist -f --no-pager"
+```
+
+### **VM Application Details**
+- **VM API URL**: http://192.168.18.3:8080/api/tasks
+- **VM Swagger**: http://192.168.18.3:8080/swagger-ui.html
+- **Database**: Same PostgreSQL container (shared with Docker deployment)
+- **Service**: Runs as systemd service for production stability
 
 ## 📚 API Documentation
 
@@ -242,9 +226,7 @@ http://localhost:8080/api
   "title": "string",
   "description": "string",
   "completed": "boolean",
-  "dueDate": "date (YYYY-MM-DD)",
-  "createdAt": "timestamp",
-  "updatedAt": "timestamp"
+  "dueDate": "date (YYYY-MM-DD)"
 }
 ```
 

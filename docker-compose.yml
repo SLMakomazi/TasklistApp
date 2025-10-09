@@ -1,22 +1,18 @@
-version: '3.8'
-
 services:
-  # Database Service
+  # PostgreSQL Database Service
   tasklist-postgres:
     image: postgres:16
     container_name: tasklist-postgres
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: tasklistdb
     ports:
-      - "${POSTGRES_PORT}:5432"
+      - "5432:5432"      # Expose port to host for WSL access
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    networks:
-      - tasklist-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d tasklistdb"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -28,31 +24,20 @@ services:
       dockerfile: Dockerfile
     container_name: tasklist-api
     ports:
-      - "${API_PORT}:8080"
+      - "8080:8080"
     environment:
       # Database connection variables
-      - DB_URL=${DB_URL}
-      - DB_USERNAME=${DB_USERNAME}
-      - DB_PASSWORD=${DB_PASSWORD}
-      # Spring Boot/JPA variables added to fix binding errors
-      - SERVER_PORT=${SERVER_PORT}
-      - JPA_SHOW_SQL=${JPA_SHOW_SQL}
-      - JPA_DDL_AUTO=${JPA_DDL_AUTO}          # Added for complete JPA configuration
-      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE} # Added for active profile
-      # Logging configuration
-      - LOG_FILE=${LOG_FILE}
-      - LOG_LEVEL_SPRING=INFO
-      - LOG_LEVEL_TASKLIST=${LOG_LEVEL_TASKLIST}
+      DB_URL: jdbc:postgresql://tasklist-postgres:5432/tasklistdb
+      DB_USERNAME: postgres
+      DB_PASSWORD: admin
+      # JPA Configuration
+      JPA_DDL_AUTO: create
+      JPA_SHOW_SQL: true
+      SPRING_PROFILES_ACTIVE: docker
     depends_on:
       tasklist-postgres:
         condition: service_healthy
-    networks:
-      - tasklist-network
     restart: unless-stopped
-
-networks:
-  tasklist-network:
-    driver: bridge
 
 volumes:
   postgres_data:
