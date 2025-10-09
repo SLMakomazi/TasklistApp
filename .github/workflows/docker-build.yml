@@ -1,0 +1,87 @@
+name: 🔨 Build, Test, and Push Docker Image
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    # --- 1. Service Definition for Integration Testing ---
+    # This starts a PostgreSQL container accessible by the name 'postgres'
+    services:
+      postgres:
+        image: postgres:16
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_DB: testdb
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+        # Health check to ensure the DB is ready before the app starts
+        options: >
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: 🛑 Checkout Code
+        uses: actions/checkout@v4
+        
+      # Caching is crucial for fast builds
+      - name: 💾 Cache Maven Dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: ⚙️ Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: 📦 Build and Run Unit Tests
+        run: mvn -B clean package
+
+      # --- 2. Testing the JAR against the PostgreSQL Service ---
+      # This step ensures the Spring Boot application can connect to the DB
+      - name: 🧪 Run Integration Tests (Requires DB Service)
+        run: |
+          # Use the 'postgres' service name for the DB connection string
+          mvn -B test -Dspring.datasource.url="jdbc:postgresql://postgres:5432/testdb" \
+            -Dspring.datasource.username="test" \
+            -Dspring.datasource.password="test"
+            
+      # --- 3. Docker Build and Push ---
+      
+      - name: 🐳 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # This step is CRITICAL for authentication before pushing
+      - name: 🔑 Login to Docker Hub
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+          
+      - name: 🏗️ Build and Push Docker Image to Hub
+        # This action handles building, tagging, and pushing in one step
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./app
+          push: true
+          # The tags MUST use your confirmed repository path: slmakomazi/tasklistapp
+          tags: ${{ secrets.DOCKER_USERNAME }}/tasklistapp:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
