@@ -46,9 +46,11 @@ jobs:
           cache: 'maven'
 
       - name: 📦 Build and Run Unit Tests
+        working-directory: ./app
         run: mvn -B clean package
 
       - name: 🧪 Run Integration Tests (Requires DB Service)
+        working-directory: ./app
         env:
           SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/testdb
           SPRING_DATASOURCE_USERNAME: test
