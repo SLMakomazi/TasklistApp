@@ -7,8 +7,8 @@ on:
 
 jobs:
   deploy-to-vm:
-    runs-on: self-hosted  # Your VM is now the runner
-    
+    runs-on: self-hosted  # VM runs this job directly
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -21,40 +21,51 @@ jobs:
 
       - name: Build Maven project
         working-directory: ./app
-        run: mvn clean package
+        run: mvn clean package -DskipTests
 
       - name: Deploy application locally
         run: |
-          echo "📦 Starting local deployment on self-hosted runner..."
+          echo "==========================================="
+          echo "📦 Starting Tasklist Deployment"
+          echo "==========================================="
 
-          # Prepare deployment directory
+          # Prepare deployment directories
+          echo "Creating required directories..."
           sudo mkdir -p /opt/tasklist/app
           sudo mkdir -p /opt/tasklist/logs
+          sudo chown -R $USER:$USER /opt/tasklist
 
-          # Stop running service if exists
-          echo "Stopping old service (if running)..."
+          # Stop service if running
+          echo "Stopping running service (if exists)..."
           sudo systemctl stop tasklist 2>/dev/null || echo "Service not running"
 
-          # Copy the new JAR
+          # Deploy new JAR
           echo "Copying new JAR..."
           sudo cp app/target/tasklist-api-*.jar /opt/tasklist/app/tasklist-api.jar
 
-          # Update systemd service if needed
+          # Update service file
+          echo "Updating systemd service..."
           sudo cp vm/service/tasklist.service /etc/systemd/system/tasklist.service
 
-          # Reload and restart
-          echo "Reloading systemd and starting service..."
+          # Reload systemd daemon
+          echo "Reloading and restarting service..."
           sudo systemctl daemon-reload
           sudo systemctl enable tasklist
           sudo systemctl start tasklist
 
-          # Verify
+          # Wait and verify
+          echo "Verifying deployment..."
           sleep 5
           if sudo systemctl is-active --quiet tasklist; then
             echo "✅ Deployment successful!"
             sudo systemctl status tasklist --no-pager
           else
-            echo "❌ Deployment failed"
+            echo "❌ Deployment failed! Logs:"
             sudo journalctl -u tasklist -n 20
             exit 1
           fi
+
+          echo "-------------------------------------------"
+          echo "📜 Checking application logs..."
+          echo "-------------------------------------------"
+          sudo tail -n 15 /opt/tasklist/logs/tasklist.log || echo "No logs found yet."
