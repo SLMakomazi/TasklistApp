@@ -1,56 +1,60 @@
 name: Deploy to VM
+
 on:
   push:
-    branches: [main]
+    branches: [ main ]
   workflow_dispatch:
+
 jobs:
   deploy-to-vm:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted  # Your VM is now the runner
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
+
       - name: Build Maven project
         working-directory: ./app
         run: mvn clean package
-      - name: Create deployment package
+
+      - name: Deploy application locally
         run: |
-          mkdir deployment-artifacts
-          cp app/target/tasklist-api-*.jar deployment-artifacts/
-          cp vm/service/tasklist.service deployment-artifacts/
-          cp vm/deploy.sh deployment-artifacts/
-          cp vm/setup.sh deployment-artifacts/
-          cp vm/scripts/update.sh deployment-artifacts/
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: deployment-artifacts
-          path: deployment-artifacts/
-      - name: Deploy to VM
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.VM_HOST }}
-          username: ${{ secrets.VM_USER }}
-          key: ${{ secrets.VM_SSH_KEY }}
-          script: |
-            mkdir -p /tmp/tasklist-deployment
-            sudo systemctl stop tasklist 2>/dev/null || echo "Service not running"
-            echo "Deploying JAR file..."
-            sudo cp /tmp/tasklist-api-*.jar /opt/tasklist/app/tasklist-api.jar 2>/dev/null || echo "No existing JAR"
-            sudo cp /tmp/tasklist.service /etc/systemd/system/ 2>/dev/null || echo "Service file not updated"
-            sudo systemctl daemon-reload 2>/dev/null || echo "Daemon reload not needed"
-            sudo systemctl enable tasklist 2>/dev/null || echo "Service enable failed"
-            sudo systemctl start tasklist
-            sleep 10
-            if sudo systemctl is-active --quiet tasklist; then
-              echo "✅ Deployment successful!"
-              sudo systemctl status tasklist --no-pager
-            else
-              echo "❌ Deployment failed"
-              sudo journalctl -u tasklist -n 20
-              exit 1
-            fi
+          echo "📦 Starting local deployment on self-hosted runner..."
+
+          # Prepare deployment directory
+          sudo mkdir -p /opt/tasklist/app
+          sudo mkdir -p /opt/tasklist/logs
+
+          # Stop running service if exists
+          echo "Stopping old service (if running)..."
+          sudo systemctl stop tasklist 2>/dev/null || echo "Service not running"
+
+          # Copy the new JAR
+          echo "Copying new JAR..."
+          sudo cp app/target/tasklist-api-*.jar /opt/tasklist/app/tasklist-api.jar
+
+          # Update systemd service if needed
+          sudo cp vm/service/tasklist.service /etc/systemd/system/tasklist.service
+
+          # Reload and restart
+          echo "Reloading systemd and starting service..."
+          sudo systemctl daemon-reload
+          sudo systemctl enable tasklist
+          sudo systemctl start tasklist
+
+          # Verify
+          sleep 5
+          if sudo systemctl is-active --quiet tasklist; then
+            echo "✅ Deployment successful!"
+            sudo systemctl status tasklist --no-pager
+          else
+            echo "❌ Deployment failed"
+            sudo journalctl -u tasklist -n 20
+            exit 1
+          fi
