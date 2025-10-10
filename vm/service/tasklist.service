@@ -33,5 +33,9 @@ ReadWritePaths=/opt/tasklist/logs /tmp
 LimitNOFILE=65536
 MemoryLimit=512M
 
+# Logging
+StandardOutput=journal
+StandardError=journal
+
 [Install]
 WantedBy=multi-user.target
