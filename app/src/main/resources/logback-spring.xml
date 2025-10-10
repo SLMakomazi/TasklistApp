@@ -1,20 +1,28 @@
 <configuration>
+    <!-- Define a reusable log directory property -->
+    <property name="LOG_PATH" value="/opt/tasklist/logs" />
+
+    <!-- Console logging for visibility in systemctl/journalctl -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
             <pattern>%d{yyyy-MM-dd HH:mm:ss} %-5level [%thread] %logger{36} - %msg%n</pattern>
         </encoder>
     </appender>
 
+    <!-- File logging: store logs persistently under /opt/tasklist/logs -->
     <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>logs/tasklist.log</file>
+        <file>${LOG_PATH}/tasklist.log</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <fileNamePattern>logs/tasklist-%d{yyyy-MM-dd}.log</fileNamePattern>
+            <!-- Rotate logs daily and keep for 14 days -->
+            <fileNamePattern>${LOG_PATH}/tasklist-%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>14</maxHistory>
         </rollingPolicy>
         <encoder>
             <pattern>%d{yyyy-MM-dd HH:mm:ss} %-5level [%thread] %logger{36} - %msg%n</pattern>
         </encoder>
     </appender>
 
+    <!-- Root logger configuration -->
     <root level="info">
         <appender-ref ref="CONSOLE" />
         <appender-ref ref="FILE" />
