@@ -12,15 +12,16 @@ ExecStop=/bin/kill -TERM $MAINPID
 Restart=always
 RestartSec=10
 
-# Environment variables
-Environment=SPRING_DATASOURCE_URL=jdbc:postgresql://192.168.18.3:5432/tasklistdb
-Environment=SPRING_DATASOURCE_USERNAME=postgres
-Environment=SPRING_DATASOURCE_PASSWORD=admin
-Environment=SPRING_JPA_HIBERNATE_DDL_AUTO=update
-Environment=SPRING_JPA_SHOW_SQL=true
+# Environment variables for Spring Boot placeholders
+Environment=DB_URL=jdbc:postgresql://192.168.18.3:5432/tasklistdb
+Environment=DB_USERNAME=postgres
+Environment=DB_PASSWORD=admin
+Environment=JPA_DDL_AUTO=update
+Environment=JPA_SHOW_SQL=true
 Environment=SERVER_PORT=8080
-Environment=LOGGING_FILE_NAME=/opt/tasklist/logs/tasklist.log
-Environment=LOGGING_LEVEL_COM_TASKLIST=DEBUG
+Environment=LOG_LEVEL_SPRING=INFO
+Environment=LOG_LEVEL_TASKLIST=DEBUG
+Environment=LOG_FILE=/opt/tasklist/logs/tasklist.log
 
 # Security settings
 NoNewPrivileges=true
