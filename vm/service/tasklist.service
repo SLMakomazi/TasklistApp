@@ -5,8 +5,8 @@ Wants=postgresql.service
 
 [Service]
 Type=simple
-User=tasklist
-Group=tasklist
+User=siseko
+Group=siseko
 ExecStart=/usr/bin/java -jar /opt/tasklist/app/tasklist-api.jar
 ExecStop=/bin/kill -TERM $MAINPID
 Restart=always

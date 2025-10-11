@@ -33,7 +33,9 @@ jobs:
           echo "Creating required directories..."
           sudo mkdir -p /opt/tasklist/app
           sudo mkdir -p /opt/tasklist/logs
-          sudo chown -R $USER:$USER /opt/tasklist
+
+          # Ensure correct ownership for 'siseko'
+          sudo chown -R siseko:siseko /opt/tasklist
 
           # Stop service if running
           echo "Stopping running service (if exists)..."
@@ -42,16 +44,17 @@ jobs:
           # Deploy new JAR
           echo "Copying new JAR..."
           sudo cp app/target/tasklist-api-*.jar /opt/tasklist/app/tasklist-api.jar
+          sudo chown siseko:siseko /opt/tasklist/app/tasklist-api.jar
 
           # Update service file
           echo "Updating systemd service..."
           sudo cp vm/service/tasklist.service /etc/systemd/system/tasklist.service
 
-          # Reload systemd daemon
+          # Reload and restart service
           echo "Reloading and restarting service..."
           sudo systemctl daemon-reload
           sudo systemctl enable tasklist
-          sudo systemctl start tasklist
+          sudo systemctl restart tasklist
 
           # Wait and verify
           echo "Verifying deployment..."
