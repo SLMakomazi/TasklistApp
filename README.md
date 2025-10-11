@@ -1,26 +1,162 @@
 # 🚀 TasklistApp - Task Management API
 
-**✅ FULLY OPERATIONAL** - A modern, containerized task management application built with **Spring Boot 3.3.4**, **PostgreSQL 16**, and **Docker**. This production-ready application provides RESTful API endpoints for managing tasks with complete CRUD operations, data persistence, and comprehensive API documentation.
+**✅ FULLY OPERATIONAL** - A modern, production-ready task management application built with **Spring Boot 3.3.4**, **PostgreSQL 16**, and **Docker**. This application provides RESTful API endpoints for managing tasks with complete CRUD operations, data persistence, and comprehensive API documentation. It supports multiple deployment strategies including Docker containers and VM-based systemd services with automated CI/CD pipelines.
 
 ![Java](https://img.shields.io/badge/Java-17-orange)
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.4-brightgreen)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue)
 ![Docker](https://img.shields.io/badge/Docker-Ready-blue)
 ![VM](https://img.shields.io/badge/VM-Deployed-green)
+![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-Ready-blue)
 ![Status](https://img.shields.io/badge/Status-Operational-success)
 
 ## 📋 Table of Contents
 
-- [🏗️ Architecture](#-architecture)
-- [✨ Features](#-features)
-- [🚀 Current Status](#-current-status)
+- [🏗️ Project Overview](#-project-overview)
 - [📁 Project Structure](#-project-structure)
+- [🚀 CI/CD Pipeline Overview](#-cicd-pipeline-overview)
+- [🖥️ Deployment Options](#-deployment-options)
 - [🚀 Setup and Run](#-setup-and-run)
 - [✅ Persistence Verification](#-persistence-verification)
-- [🖥️ VM Deployment](#-vm-deployment)
 - [📚 API Documentation](#-api-documentation)
 - [🧪 Testing](#-testing)
 - [🤝 Contributing](#-contributing)
+
+## 🏗️ Project Overview
+
+**TasklistApp** is a comprehensive task management system that combines a Spring Boot REST API with PostgreSQL database persistence. The application supports multiple deployment environments and includes automated CI/CD pipelines for seamless development and production workflows.
+
+### Key Technologies
+- **Backend Framework**: Spring Boot 3.3.4 with Java 17
+- **Database**: PostgreSQL 16 with JPA/Hibernate ORM
+- **Containerization**: Multi-stage Docker builds
+- **Deployment**: Docker containers + VM systemd services
+- **CI/CD**: GitHub Actions with automated build, test, and deployment
+- **Documentation**: OpenAPI 3.0 / Swagger UI
+
+### Core Features
+- ✅ **Complete CRUD Operations** - Create, Read, Update, Delete tasks via REST API
+- ✅ **Data Persistence** - PostgreSQL with automatic schema generation
+- ✅ **Multi-Environment Deployment** - Docker containers and VM services
+- ✅ **Automated CI/CD** - Build, test, and deployment automation
+- ✅ **Comprehensive Logging** - Configurable logging with file rotation
+- ✅ **Health Monitoring** - Spring Boot Actuator endpoints
+- ✅ **API Documentation** - Interactive Swagger/OpenAPI documentation
+- ✅ **Environment Configuration** - Fully configurable via environment variables
+
+## 📁 Project Structure
+
+```
+TasklistApp/                     # 🚀 Main Project Directory
+├── 📄 README.md                # 📖 This file - Complete project documentation
+├── 📄 docker-compose.yml       # 🐳 Multi-container orchestration
+├── 📄 .env                     # 🔐 Environment configuration (git-ignored)
+├── 📁 app/                     # 💻 Spring Boot Application
+│   ├── 📄 README.md           # 📱 App development and build guide
+│   ├── 📄 Dockerfile          # 🐳 Multi-stage build configuration
+│   ├── 📄 pom.xml             # 📦 Maven dependencies and build configuration
+│   └── 📁 src/                # 💻 Source code
+│       └── 📁 main/
+│           ├── 📁 java/com/tasklist/
+│           │   ├── 📄 TasklistApplication.java  # 🚀 Main application class
+│           │   ├── 📁 controller/     # 🌐 REST Controllers (Task management endpoints)
+│           │   ├── 📁 model/          # 💾 JPA Entities (Task entity model)
+│           │   ├── 📁 repository/     # 🗄️ Data Repositories (Task data access)
+│           │   └── 📁 config/         # ⚙️ Configuration (OpenAPI setup)
+│           └── 📁 resources/
+│               ├── 📄 application.properties  # ⚙️ App configuration (environment variables)
+│               └── 📄 logback-spring.xml      # 📝 Logging configuration
+├── 📁 database/               # 🗄️ Database Layer
+│   └── 📄 README.md          # 💾 Database management and setup guide
+├── 📁 vm/                    # 🖥️ VM Deployment
+│   ├── 📄 README.md          # 🖥️ VM deployment and systemd service guide
+│   ├── 📄 deploy.sh          # 🚀 Automated VM deployment script
+│   ├── 📄 setup.sh           # 🔧 Initial VM setup script
+│   ├── 📁 service/           # ⚙️ Systemd service files
+│   │   └── 📄 tasklist.service
+│   └── 📁 scripts/          # 🔧 Utility scripts
+│       └── 📄 update.sh      # 🔄 Application update script
+└── 📁 .github/               # 🤖 GitHub Actions CI/CD
+    └── 📁 workflows/         # 🔄 Automated workflows
+        ├── 📄 docker-build.yml   # 🐳 Docker build, test, and push pipeline
+        └── 📄 vm-deploy.yml      # 🖥️ VM deployment pipeline
+```
+
+### Directory Explanations
+
+- **`/app`**: Contains the Spring Boot application (`tasklist-api`) with Maven build configuration, source code, and Docker setup
+- **`/vm`**: VM deployment scripts, systemd service configuration, and utility scripts for production deployment
+- **`/database`**: Database setup instructions and configuration for PostgreSQL container management
+- **`/.github/workflows`**: GitHub Actions CI/CD pipelines for automated building, testing, and deployment
+
+## 🚀 CI/CD Pipeline Overview
+
+The project includes two automated GitHub Actions workflows:
+
+### **1. 🔨 Build and Test Pipeline (`docker-build.yml`)**
+- **Purpose**: Builds, tests, and pushes Docker images
+- **Triggers**: Push to `main`/`develop` branches, Pull Requests
+- **Features**:
+  - Maven dependency caching for faster builds
+  - Unit and integration testing with PostgreSQL service
+  - Multi-stage Docker image building
+  - Automated push to Docker Hub (`slmakomazi/tasklistapp`)
+  - Build artifact caching for performance
+
+### **2. 🚀 VM Deployment Pipeline (`vm-deploy.yml`)**
+- **Purpose**: Deploys application to VM via SSH and systemd
+- **Triggers**: Push to `main` branch, Manual trigger
+- **Features**:
+  - Automated JAR building from source
+  - SSH deployment to VM with service management
+  - Systemd service restart and verification
+  - Deployment artifact management
+  - Error handling and rollback capabilities
+
+Both pipelines run on GitHub Actions runners and provide comprehensive automation for development and production workflows.
+
+## 🖥️ Deployment Options
+
+The application supports multiple deployment strategies:
+
+### **🐳 Docker Container Deployment**
+- **Method**: Multi-container Docker Compose setup
+- **Components**: Spring Boot API + PostgreSQL database
+- **Access**: `http://localhost:8080/api/tasks`
+- **Features**: Development-friendly with hot reload
+- **Use Case**: Local development and containerized environments
+
+### **🖥️ VM Service Deployment**
+- **Method**: Systemd service on Linux VM
+- **Components**: Spring Boot JAR + PostgreSQL (shared container)
+- **Access**: `http://vm-ip:8080/api/tasks`
+- **Features**: Production-grade service management
+- **Use Case**: Production servers and dedicated hosting
+
+### **🔧 Environment Variables**
+All deployments use environment-based configuration (no hardcoded values):
+
+```env
+# Database Configuration
+DB_URL=jdbc:postgresql://host:5432/tasklistdb
+DB_USERNAME=postgres
+DB_PASSWORD=admin
+
+# Application Configuration
+SERVER_PORT=8080
+
+# JPA Configuration
+JPA_DDL_AUTO=update
+JPA_SHOW_SQL=true
+
+# Logging Configuration
+LOG_LEVEL_SPRING=INFO
+LOG_LEVEL_TASKLIST=DEBUG
+LOG_FILE=/opt/tasklist/logs/tasklist.log
+```
+
+### **🔄 Cross-Deployment Consistency**
+Both Docker and VM deployments connect to the same PostgreSQL database, ensuring data consistency across environments.
 
 ## 🏗️ Architecture
 
