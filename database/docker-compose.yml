@@ -1,9 +1,9 @@
 version: '3.8'
 
 services:
-  postgres:
+  tasklist-db:
     image: postgres:16
-    container_name: tasklist-postgres
+    container_name: tasklist-db-postgres  # Changed for consistency
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
