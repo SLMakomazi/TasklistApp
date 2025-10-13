@@ -15,10 +15,10 @@ This directory contains GitHub Actions workflows for automated building, testing
 
 The TasklistApp uses two main GitHub Actions workflows for continuous integration and deployment:
 
-### 1. Build and Test Pipeline (`docker-build.yml`)
+### 1. CI Pipeline (`ci-test.yml`)
 
 #### Purpose
-This pipeline builds, tests, and pushes Docker images to Docker Hub.
+This pipeline runs comprehensive tests on the TasklistApp codebase.
 
 #### Triggers
 - **Push events** to `main` and `develop` branches
@@ -26,28 +26,57 @@ This pipeline builds, tests, and pushes Docker images to Docker Hub.
 - **Manual trigger** via `workflow_dispatch`
 
 #### Key Features
-- **Maven dependency caching** for faster builds
-- **Unit and integration testing** with PostgreSQL service
-- **Multi-stage Docker image building**
-- **Automated push to Docker Hub** (`slmakomazi/tasklistapp`)
-- **Build artifact caching** for improved performance
+- **Maven dependency caching** for faster test execution
+- **Unit testing** with JUnit 5
+- **Integration testing** with PostgreSQL service
+- **Multi-stage testing** pipeline
 
 #### Workflow Steps
 1. **Checkout code** from repository
 2. **Cache Maven dependencies** for faster builds
 3. **Set up Java 17** with Maven caching
-4. **Build and run unit tests** with Maven
+4. **Run unit tests** with Maven
 5. **Run integration tests** with PostgreSQL service
-6. **Set up Docker Buildx** for cross-platform builds
-7. **Login to Docker Hub** (on main branch pushes)
-8. **Build and push Docker image** (on main branch pushes)
 
-#### Cache Usage
-- **Maven dependencies**: `~/.m2/repository` cached based on `pom.xml` hash
-- **Docker layers**: GitHub Actions cache for faster image builds
-- **Build artifacts**: Reused across workflow runs
+#### Test Configuration
+```yaml
+# PostgreSQL service for testing
+services:
+  postgres:
+    image: postgres:16
+    env:
+      POSTGRES_DB: testdb
+      POSTGRES_USER: test
+      POSTGRES_PASSWORD: test
+```
 
-### 2. VM Deployment Pipeline (`vm-deploy.yml`)
+### 2. Container Build Pipeline (`ci-build.yml`)
+
+#### Purpose
+This pipeline builds and pushes Docker containers to Docker Hub.
+
+#### Triggers
+- **Push events** to `main` branch
+- **Manual trigger** via `workflow_dispatch`
+- **After successful test completion** via workflow dependency
+
+#### Key Features
+- **Multi-container builds** for application and database
+- **Docker layer caching** for faster builds
+- **Automated tagging** with version numbers
+- **Push to Docker Hub** (`slmakomazi/tasklistapp`)
+
+#### Workflow Steps
+1. **Checkout code** from repository
+2. **Login to Docker Hub** (on main branch pushes)
+3. **Build TaskList API container** and push to registry
+4. **Build PostgreSQL database container** and push to registry
+
+#### Container Images
+- **API Container**: `slmakomazi/tasklistapp:api-latest`
+- **Database Container**: `slmakomazi/tasklistapp:db-latest`
+
+### 3. VM Deployment Pipeline (`vm-deploy.yml`)
 
 #### Purpose
 This pipeline builds and deploys the application to a VM using a self-hosted runner for local deployment.
@@ -76,10 +105,10 @@ This pipeline builds and deploys the application to a VM using a self-hosted run
 
 ## Available Workflows
 
-### docker-build.yml
-**Location**: `.github/workflows/docker-build.yml`
+### ci-test.yml
+**Location**: `.github/workflows/ci-test.yml`
 
-**Description**: Builds Docker images, runs tests, and pushes to Docker Hub.
+**Description**: Runs comprehensive tests including unit tests and integration tests.
 
 **Runner**: `ubuntu-latest` (GitHub-hosted)
 
@@ -87,7 +116,17 @@ This pipeline builds and deploys the application to a VM using a self-hosted run
 - PostgreSQL 16 for integration testing
 
 **Artifacts**:
-- Docker image: `slmakomazi/tasklistapp:latest`
+- Test results and coverage reports
+
+### ci-build.yml
+**Location**: `.github/workflows/ci-build.yml`
+
+**Description**: Builds and pushes Docker containers to Docker Hub.
+
+**Runner**: `ubuntu-latest` (GitHub-hosted)
+
+**Artifacts**:
+- Docker containers: `slmakomazi/tasklistapp:api-latest`, `slmakomazi/tasklistapp:db-latest`
 
 ### vm-deploy.yml
 **Location**: `.github/workflows/vm-deploy.yml`
@@ -138,8 +177,9 @@ on:
 Add these badges to your repository README:
 
 ```markdown
-[![Build and Test](https://github.com/SLMakomazi/TasklistApp/actions/workflows/docker-build.yml/badge.svg)](https://github.com/SLMakomazi/TasklistApp/actions/workflows/docker-build.yml)
-[![VM Deploy](https://github.com/SLMakomazi/TasklistApp/actions/workflows/vm-deploy.yml/badge.svg)](https://github.com/SLMakomazi/TasklistApp/actions/workflows/vm-deploy.yml)
+[![CI - Test](https://github.com/YOUR_USERNAME/TasklistApp/actions/workflows/ci-test.yml/badge.svg)](https://github.com/YOUR_USERNAME/TasklistApp/actions/workflows/ci-test.yml)
+[![CI - Build](https://github.com/YOUR_USERNAME/TasklistApp/actions/workflows/ci-build.yml/badge.svg)](https://github.com/YOUR_USERNAME/TasklistApp/actions/workflows/ci-build.yml)
+[![VM Deploy](https://github.com/YOUR_USERNAME/TasklistApp/actions/workflows/vm-deploy.yml/badge.svg)](https://github.com/YOUR_USERNAME/TasklistApp/actions/workflows/vm-deploy.yml)
 ```
 
 ## Required Secrets
@@ -185,23 +225,23 @@ DOCKER_PASSWORD = your-dockerhub-password
 
 ## Testing
 
-### Build and Test Pipeline Testing
+### CI Pipeline Testing
 
 #### Unit Tests
 - **Location**: `app/src/test/java/`
 - **Framework**: JUnit 5
 - **Coverage**: Repository and service layer tests
-- **Execution**: `mvn test` in pipeline
+- **Execution**: `mvn test` in ci-test.yml pipeline
 
 #### Integration Tests
 - **Framework**: Spring Boot Test with TestContainers
-- **Database**: PostgreSQL 16 service in workflow
+- **Database**: PostgreSQL 16 service in ci-test.yml workflow
 - **Coverage**: Full application context with database
-- **Execution**: `mvn test -Dspring.profiles.active=test`
+- **Execution**: `mvn test -Dspring.profiles.active=test` in ci-test.yml pipeline
 
 #### Test Configuration
 ```yaml
-# PostgreSQL service for testing
+# PostgreSQL service for testing (in ci-test.yml)
 services:
   postgres:
     image: postgres:16
@@ -215,22 +255,22 @@ services:
 
 #### Test Workflow Triggers
 ```bash
-# Trigger build-and-test manually
+# Trigger CI test workflow manually
 curl -X POST \
   -H "Authorization: token $GITHUB_TOKEN" \
-  https://api.github.com/repos/SLMakomazi/TasklistApp/actions/workflows/docker-build.yml/dispatches \
+  https://api.github.com/repos/YOUR_USERNAME/TasklistApp/actions/workflows/ci-test.yml/dispatches \
   -d '{"ref":"main"}'
 
-# Trigger VM deployment manually
+# Trigger container build workflow manually
 curl -X POST \
   -H "Authorization: token $GITHUB_TOKEN" \
-  https://api.github.com/repos/SLMakomazi/TasklistApp/actions/workflows/vm-deploy.yml/dispatches \
+  https://api.github.com/repos/YOUR_USERNAME/TasklistApp/actions/workflows/ci-build.yml/dispatches \
   -d '{"ref":"main"}'
 ```
 
 #### View Workflow Runs
-- **GitHub Actions tab**: https://github.com/SLMakomazi/TasklistApp/actions
-- **API endpoint**: `https://api.github.com/repos/SLMakomazi/TasklistApp/actions/runs`
+- **GitHub Actions tab**: https://github.com/YOUR_USERNAME/TasklistApp/actions
+- **API endpoint**: `https://api.github.com/repos/YOUR_USERNAME/TasklistApp/actions/runs`
 
 ## Deployment
 
@@ -266,7 +306,8 @@ curl -X POST \
 #### Check Workflow Status
 ```bash
 # View recent workflow runs
-gh run list --workflow=docker-build.yml
+gh run list --workflow=ci-test.yml
+gh run list --workflow=ci-build.yml
 gh run list --workflow=vm-deploy.yml
 
 # View specific run details
