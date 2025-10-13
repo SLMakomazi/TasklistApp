@@ -3,8 +3,12 @@ package com.tasklist.repository;
 import com.tasklist.model.Task;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
+import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.TestPropertySource;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -12,6 +16,20 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
+@EnableJpaRepositories(basePackages = "com.tasklist.repository")
+@EntityScan(basePackages = "com.tasklist.model")
+@ContextConfiguration(classes = {TaskRepositoryTest.TestConfig.class})
+@TestPropertySource(properties = {
+    "spring.datasource.url=jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE",
+    "spring.datasource.username=sa",
+    "spring.datasource.password=password",
+    "spring.datasource.driver-class-name=org.h2.Driver",
+    "spring.jpa.hibernate.ddl-auto=create-drop",
+    "spring.jpa.show-sql=true",
+    "spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.H2Dialect",
+    "spring.jpa.database-platform=org.hibernate.dialect.H2Dialect",
+    "spring.sql.init.mode=never"
+})
 class TaskRepositoryTest {
 
     @Autowired
@@ -19,6 +37,11 @@ class TaskRepositoryTest {
 
     @Autowired
     private TaskRepository taskRepository;
+
+    // Test configuration class to avoid loading main application
+    @org.springframework.context.annotation.Configuration
+    static class TestConfig {
+    }
 
     @Test
     void shouldFindTasksByCompletedStatus() {
