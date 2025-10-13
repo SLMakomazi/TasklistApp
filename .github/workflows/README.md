@@ -28,7 +28,7 @@ This pipeline runs comprehensive tests on the TasklistApp codebase.
 #### Key Features
 - **Maven dependency caching** for faster test execution
 - **Unit testing** with JUnit 5
-- **Integration testing** with PostgreSQL service
+- **Integration testing** with H2 in-memory database
 - **Multi-stage testing** pipeline
 
 #### Workflow Steps
@@ -36,18 +36,15 @@ This pipeline runs comprehensive tests on the TasklistApp codebase.
 2. **Cache Maven dependencies** for faster builds
 3. **Set up Java 17** with Maven caching
 4. **Run unit tests** with Maven
-5. **Run integration tests** with PostgreSQL service
+5. **Run integration tests** with H2 in-memory database
 
 #### Test Configuration
 ```yaml
-# PostgreSQL service for testing
-services:
-  postgres:
-    image: postgres:16
-    env:
-      POSTGRES_DB: testdb
-      POSTGRES_USER: test
-      POSTGRES_PASSWORD: test
+# Test profile configuration (in application-test.properties)
+spring.datasource.url=jdbc:h2:mem:testdb
+spring.datasource.username=sa
+spring.datasource.password=password
+spring.jpa.hibernate.ddl-auto=create-drop
 ```
 
 ### 2. Container Build Pipeline (`ci-build.yml`)
@@ -234,21 +231,18 @@ DOCKER_PASSWORD = your-dockerhub-password
 - **Execution**: `mvn test` in ci-test.yml pipeline
 
 #### Integration Tests
-- **Framework**: Spring Boot Test with TestContainers
-- **Database**: PostgreSQL 16 service in ci-test.yml workflow
+- **Framework**: Spring Boot Test with H2 in-memory database
+- **Database**: H2 in-memory database (configured in application-test.properties)
 - **Coverage**: Full application context with database
 - **Execution**: `mvn test -Dspring.profiles.active=test` in ci-test.yml pipeline
 
 #### Test Configuration
 ```yaml
-# PostgreSQL service for testing (in ci-test.yml)
-services:
-  postgres:
-    image: postgres:16
-    env:
-      POSTGRES_DB: testdb
-      POSTGRES_USER: test
-      POSTGRES_PASSWORD: test
+# Test profile configuration (in application-test.properties)
+spring.datasource.url=jdbc:h2:mem:testdb
+spring.datasource.username=sa
+spring.datasource.password=password
+spring.jpa.hibernate.ddl-auto=create-drop
 ```
 
 ### Manual Testing

@@ -10,20 +10,6 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16
-        ports:
-          - 5432:5432
-        env:
-          POSTGRES_DB: testdb
-          POSTGRES_USER: test
-          POSTGRES_PASSWORD: test
-        options: >-
-          --health-cmd="pg_isready -U test -d testdb"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
 
     steps:
       - name: Checkout Code
@@ -51,14 +37,11 @@ jobs:
       - name: Run Integration Tests
         working-directory: ./app
         env:
-          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/testdb
-          SPRING_DATASOURCE_USERNAME: test
-          SPRING_DATASOURCE_PASSWORD: test
+          SPRING_PROFILES_ACTIVE: test
+          SPRING_DATASOURCE_URL: jdbc:h2:mem:testdb
+          SPRING_DATASOURCE_USERNAME: sa
+          SPRING_DATASOURCE_PASSWORD: password
         run: |
-          echo "Waiting for Postgres to be healthy..."
-          for i in {1..10}; do
-            pg_isready -h localhost -p 5432 -U test -d testdb && break
-            echo "Database not ready yet... retrying in 5s"
-            sleep 5
-          done
-          mvn -B verify
+          echo "Waiting for test environment to be ready..."
+          sleep 3
+          mvn -B test -Dspring.profiles.active=test
