@@ -1,13 +1,11 @@
 name: CI - Build and Push Containers
 
 on:
-  push:
-    branches: [main]
-  workflow_dispatch:
   workflow_run:
     workflows: ["CI - Test Application"]
     types:
       - completed
+  workflow_dispatch:
 
 jobs:
   build-containers:
