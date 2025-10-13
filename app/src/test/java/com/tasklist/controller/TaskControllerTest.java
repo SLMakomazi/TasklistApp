@@ -15,12 +15,20 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.test.context.TestPropertySource;
+
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(TaskController.class)
+@TestPropertySource(properties = {
+    "spring.datasource.url=jdbc:h2:mem:webmvctestdb",
+    "spring.datasource.username=sa",
+    "spring.datasource.password=password",
+    "spring.jpa.hibernate.ddl-auto=none"
+})
 class TaskControllerTest {
 
     @Autowired
