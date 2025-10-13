@@ -32,16 +32,30 @@ jobs:
 
       - name: Run Unit Tests
         working-directory: ./app
-        run: mvn -B clean test
+        run: |
+          echo "🧪 Running Unit Tests..."
+          mvn -B clean test 2>&1 | tee test-output.log
+          if [ ${PIPESTATUS[0]} -ne 0 ]; then
+            echo "❌ UNIT TESTS FAILED"
+            echo "=== UNIT TEST FAILURES ==="
+            grep -E "(FAILURES|ERRORS|Error:|Caused by:|Exception:)" test-output.log | head -20
+            echo "=========================="
+            exit 1
+          else
+            echo "✅ Unit tests passed"
+          fi
 
       - name: Run Integration Tests
         working-directory: ./app
-        env:
-          SPRING_PROFILES_ACTIVE: test
-          SPRING_DATASOURCE_URL: jdbc:h2:mem:testdb
-          SPRING_DATASOURCE_USERNAME: sa
-          SPRING_DATASOURCE_PASSWORD: password
         run: |
-          echo "Waiting for test environment to be ready..."
-          sleep 3
-          mvn -B test -Dspring.profiles.active=test
+          echo "🔗 Running Integration Tests..."
+          mvn -B test -Dspring.profiles.active=test 2>&1 | tee integration-test-output.log
+          if [ ${PIPESTATUS[0]} -ne 0 ]; then
+            echo "❌ INTEGRATION TESTS FAILED"
+            echo "=== INTEGRATION TEST FAILURES ==="
+            grep -E "(FAILURES|ERRORS|Error:|Caused by:|Exception:)" integration-test-output.log | head -20
+            echo "================================"
+            exit 1
+          else
+            echo "✅ Integration tests passed"
+          fi
