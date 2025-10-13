@@ -11,6 +11,41 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
+    # PostgreSQL service for integration tests
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: testdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    # Environment variables for logging and DB connection (matches application.properties)
+    env:
+      # Database Configuration (matches application.properties)
+      DB_URL: jdbc:postgresql://localhost:5432/testdb
+      DB_USERNAME: test
+      DB_PASSWORD: test
+
+      # JPA Configuration
+      JPA_DDL_AUTO: create-drop
+      JPA_SHOW_SQL: true
+
+      # Server Configuration
+      SERVER_PORT: 8080
+
+      # Logging Configuration (matches application.properties)
+      LOG_LEVEL_SPRING: WARN
+      LOG_LEVEL_TASKLIST: DEBUG
+      LOG_FILE: test.log
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -49,6 +84,7 @@ jobs:
         working-directory: ./app
         run: |
           echo "🔗 Running Integration Tests..."
+          # Environment variables are inherited from the job level (env block above)
           mvn -B test -Dspring.profiles.active=test 2>&1 | tee integration-test-output.log
           if [ ${PIPESTATUS[0]} -ne 0 ]; then
             echo "❌ INTEGRATION TESTS FAILED"
