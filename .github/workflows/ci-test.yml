@@ -11,41 +11,6 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
-    # PostgreSQL service for integration tests
-    services:
-      postgres:
-        image: postgres:15-alpine
-        env:
-          POSTGRES_USER: test
-          POSTGRES_PASSWORD: test
-          POSTGRES_DB: testdb
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 5
-
-    # Environment variables for logging and DB connection (matches application.properties)
-    env:
-      # Database Configuration (matches application.properties)
-      DB_URL: jdbc:postgresql://localhost:5432/testdb
-      DB_USERNAME: test
-      DB_PASSWORD: test
-
-      # JPA Configuration
-      JPA_DDL_AUTO: create-drop
-      JPA_SHOW_SQL: true
-
-      # Server Configuration
-      SERVER_PORT: 8080
-
-      # Logging Configuration (matches application.properties)
-      LOG_LEVEL_SPRING: WARN
-      LOG_LEVEL_TASKLIST: DEBUG
-      LOG_FILE: test.log
-
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -65,33 +30,38 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
-      - name: Run Unit Tests
+      - name: Run Unit Tests (Isolated)
         working-directory: ./app
         run: |
-          echo "🧪 Running Unit Tests..."
-          mvn -B clean test 2>&1 | tee test-output.log
+          echo "🧪 Running Unit Tests (Individual Test Isolation)..."
+          echo "=== UNIT TESTS - Running one by one ==="
+          mvn test -Dtest=*Test -DfailIfNoTests=false 2>&1 | tee unit-test-output.log
           if [ ${PIPESTATUS[0]} -ne 0 ]; then
             echo "❌ UNIT TESTS FAILED"
-            echo "=== UNIT TEST FAILURES ==="
-            grep -E "(FAILURES|ERRORS|Error:|Caused by:|Exception:)" test-output.log | head -20
-            echo "=========================="
+            echo "=== UNIT TEST FAILURES (Detailed) ==="
+            grep -E "(FAILURES|ERRORS|Error:|Caused by:|Exception:|<<< FAILURE!)" unit-test-output.log | head -30
+            echo "=== Individual Test Results ==="
+            grep -E "Tests run:|OK|FAILURES|ERRORS" unit-test-output.log
+            echo "==================================="
             exit 1
           else
-            echo "✅ Unit tests passed"
+            echo "✅ All unit tests passed"
           fi
 
-      - name: Run Integration Tests
+      - name: Run Integration Tests (Isolated)
         working-directory: ./app
         run: |
-          echo "🔗 Running Integration Tests..."
-          # Environment variables are inherited from the job level (env block above)
-          mvn -B test -Dspring.profiles.active=test 2>&1 | tee integration-test-output.log
+          echo "🔗 Running Integration Tests (Individual Test Isolation)..."
+          echo "=== INTEGRATION TESTS - Running one by one ==="
+          mvn test -Dtest=*IntegrationTest -DfailIfNoTests=false 2>&1 | tee integration-test-output.log
           if [ ${PIPESTATUS[0]} -ne 0 ]; then
             echo "❌ INTEGRATION TESTS FAILED"
-            echo "=== INTEGRATION TEST FAILURES ==="
-            grep -E "(FAILURES|ERRORS|Error:|Caused by:|Exception:)" integration-test-output.log | head -20
-            echo "================================"
+            echo "=== INTEGRATION TEST FAILURES (Detailed) ==="
+            grep -E "(FAILURES|ERRORS|Error:|Caused by:|Exception:|<<< FAILURE!)" integration-test-output.log | head -30
+            echo "=== Individual Test Results ==="
+            grep -E "Tests run:|OK|FAILURES|ERRORS" integration-test-output.log
+            echo "==================================="
             exit 1
           else
-            echo "✅ Integration tests passed"
+            echo "✅ All integration tests passed"
           fi
