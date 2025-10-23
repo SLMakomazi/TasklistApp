@@ -35,8 +35,8 @@ jobs:
           file: ./app/Dockerfile
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}/tasklistapp:api-latest
-            ghcr.io/${{ github.repository }}/tasklistapp:api-${{ github.run_number }}
+            ghcr.io/slmakomazi/tasklistapp:api-latest
+            ghcr.io/slmakomazi/tasklistapp:api-${{ github.run_number }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -47,7 +47,7 @@ jobs:
           file: ./database/Dockerfile
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}/tasklistapp:db-latest
-            ghcr.io/${{ github.repository }}/tasklistapp:db-${{ github.run_number }}
+            ghcr.io/slmakomazi/tasklistapp:db-latest
+            ghcr.io/slmakomazi/tasklistapp:db-${{ github.run_number }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
