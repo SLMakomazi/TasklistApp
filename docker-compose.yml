@@ -18,12 +18,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-      
-    # CRITICAL FIX FOR EXTERNAL CONNECTIONS: 
-    # Forces PostgreSQL to listen on all interfaces and allow MD5 authentication 
-    # from any host (0.0.0.0/0). This is required when connecting from the 
-    # Windows Host IP (192.168.18.3) or an external VM.
-    command: postgres -c 'listen_addresses=*' -c 'host all all 0.0.0.0/0 md5'
+      start_period: 30s
+    # Standard PostgreSQL configuration
 
   # Spring Boot API Service
   tasklist-api:
