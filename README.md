@@ -1,13 +1,17 @@
 # 🚀 TasklistApp - Task Management API
 
-**✅ FULLY OPERATIONAL** - A modern, production-ready task management application built with **Spring Boot 3.3.4**, **PostgreSQL 16**, and **Docker**. This application provides RESTful API endpoints for managing tasks with complete CRUD operations, data persistence, and comprehensive API documentation. It supports multiple deployment strategies including Docker containers and VM-based systemd services with automated CI/CD pipelines.
+**✅ FULLY OPERATIONAL** - A modern, production-ready task management application built with **Spring Boot 3.3.4**, **PostgreSQL 16**, and **Docker**. This application provides RESTful API endpoints for managing tasks with complete CRUD operations, data persistence, and comprehensive API documentation. It supports multiple deployment strategies including Docker containers, VM-based systemd services, and **Kubernetes with ArgoCD GitOps** - all with automated CI/CD pipelines.
 
 ![Java](https://img.shields.io/badge/Java-17-orange)
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.4-brightgreen)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue)
 ![Docker](https://img.shields.io/badge/Docker-Ready-blue)
+![Kubernetes](https://img.shields.io/badge/Kubernetes-Ready-blue)
+![ArgoCD](https://img.shields.io/badge/ArgoCD-Ready-blue)
+![MicroK8s](https://img.shields.io/badge/MicroK8s-Ready-blue)
 ![VM](https://img.shields.io/badge/VM-Deployed-green)
 ![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-Ready-blue)
+![GitHub Container Registry](https://img.shields.io/badge/GHCR-Ready-blue)
 ![Status](https://img.shields.io/badge/Status-Operational-success)
 
 ## 📋 Table of Contents
@@ -50,7 +54,7 @@
 TasklistApp/                     # 🚀 Main Project Directory
 ├── 📄 README.md                # 📖 This file - Complete project documentation
 ├── 📄 docker-compose.yml       # 🐳 Multi-container orchestration
-├── 📄 .env                     # 🔐 Environment configuration (git-ignored)
+├── 📄 .env.example            # 🔐 Environment configuration template
 ├── 📁 app/                     # 💻 Spring Boot Application
 │   ├── 📄 README.md           # 📱 App development and build guide
 │   ├── 📄 Dockerfile          # 🐳 Multi-stage build configuration
@@ -68,6 +72,12 @@ TasklistApp/                     # 🚀 Main Project Directory
 │               └── 📄 logback-spring.xml      # 📝 Logging configuration
 ├── 📁 database/               # 🗄️ Database Layer
 │   └── 📄 README.md          # 💾 Database management and setup guide
+├── 📁 ansible/              # 🔧 Ansible Provisioning (NEW)
+│   ├── 📄 README.md          # 📋 Ansible provisioning guide
+│   ├── 📄 inventory.ini      # 🖥️ VM targets and variables
+│   ├── 📄 provision.yml      # 🚀 VM provisioning playbook
+│   ├── 📄 deploy.yml         # 📦 Application deployment playbook
+│   └── 📁 templates/         # 📝 Jinja2 configuration templates
 ├── 📁 vm/                    # 🖥️ VM Deployment
 │   ├── 📄 README.md          # 🖥️ VM deployment and systemd service guide
 │   ├── 📄 deploy.sh          # 🚀 Automated VM deployment script
@@ -78,7 +88,8 @@ TasklistApp/                     # 🚀 Main Project Directory
 │       └── 📄 update.sh      # 🔄 Application update script
 └── 📁 .github/               # 🤖 GitHub Actions CI/CD
     └── 📁 workflows/         # 🔄 Automated workflows
-        ├── 📄 docker-build.yml   # 🐳 Docker build, test, and push pipeline
+        ├── 📄 ci-build.yml       # 🐳 Docker build and push to GHCR (UPDATED)
+        ├── 📄 ci-test.yml        # 🧪 Unit and integration testing
         └── 📄 vm-deploy.yml      # 🖥️ VM deployment pipeline
 ```
 
@@ -87,23 +98,33 @@ TasklistApp/                     # 🚀 Main Project Directory
 - **`/app`**: Contains the Spring Boot application (`tasklist-api`) with Maven build configuration, source code, and Docker setup
 - **`/vm`**: VM deployment scripts, systemd service configuration, and utility scripts for production deployment
 - **`/database`**: Database setup instructions and configuration for PostgreSQL container management
-- **`/.github/workflows`**: GitHub Actions CI/CD pipelines for automated building, testing, and deployment
+- **`/k8s`**: **NEW** - Complete Kubernetes manifests for MicroK8s deployment with ArgoCD GitOps integration
+- **`/.github/workflows`**: GitHub Actions CI/CD pipelines for automated building, testing, and deployment (now uses GitHub Container Registry)
 
 ## 🚀 CI/CD Pipeline Overview
 
-The project includes two automated GitHub Actions workflows:
+The project includes comprehensive GitHub Actions workflows for automated building, testing, and deployment:
 
-### **1. 🔨 Build and Test Pipeline (`docker-build.yml`)**
-- **Purpose**: Builds, tests, and pushes Docker images
+### **1. 🔨 Build and Test Pipeline (`ci-build.yml`)**
+- **Purpose**: Builds, tests, and pushes Docker images to GitHub Container Registry
 - **Triggers**: Push to `main`/`develop` branches, Pull Requests
 - **Features**:
   - Maven dependency caching for faster builds
   - Unit and integration testing with PostgreSQL service
   - Multi-stage Docker image building
-  - Automated push to Docker Hub (`slmakomazi/tasklistapp`)
+  - Automated push to GitHub Container Registry (`ghcr.io/slmakomazi/tasklistapp`)
   - Build artifact caching for performance
+  - **NEW**: GitHub Container Registry integration for ArgoCD consumption
 
-### **2. 🚀 VM Deployment Pipeline (`vm-deploy.yml`)**
+### **2. 🧪 Test Pipeline (`ci-test.yml`)**
+- **Purpose**: Runs comprehensive unit and integration tests
+- **Triggers**: Push to `main`/`develop` branches, Pull Requests
+- **Features**:
+  - Individual test isolation for detailed failure reporting
+  - PostgreSQL service integration for database testing
+  - Automated test result parsing and error reporting
+
+### **3. 🚀 VM Deployment Pipeline (`vm-deploy.yml`)**
 - **Purpose**: Deploys application to VM via SSH and systemd
 - **Triggers**: Push to `main` branch, Manual trigger
 - **Features**:
@@ -112,51 +133,92 @@ The project includes two automated GitHub Actions workflows:
   - Systemd service restart and verification
   - Deployment artifact management
   - Error handling and rollback capabilities
+  - **NEW**: Ansible provisioning step for consistent environment setup
 
-Both pipelines run on GitHub Actions runners and provide comprehensive automation for development and production workflows.
+### **8) Orchestration / provisioning for hosts**
+- **Action**: Provision or update VMs, install Docker/MicroK8s, copy manifests or JARs
+- **Tech**: Ansible (playbooks: `ansible/provision.yml`, `ansible/deploy.yml`)
+- **What it does**:
+  - Ensures consistent environment on VMs (install Java 17, Docker, create users, directories)
+  - Provisions single VM or scales to multiple VMs
+  - Pulls images/manifests and applies them (idempotent)
+  - Configures systemd services and firewall rules
+- **Files involved**: `/ansible/inventory.ini`, `/ansible/provision.yml`, `/ansible/deploy.yml`
+- **Why**: Scale to many VMs without manual per-VM changes (solves changing IP problem)
+- **Usage**:
+  ```bash
+  # Provision VM
+  ansible-playbook -i ansible/inventory.ini ansible/provision.yml
 
-## 🖥️ Deployment Options
+  # Deploy application
+  ansible-playbook -i ansible/inventory.ini ansible/deploy.yml
+  ```
 
-The application supports multiple deployment strategies:
+### **4. 🔄 ArgoCD Integration**
+- **Purpose**: GitOps deployment to Kubernetes cluster
+- **Integration**: Watches GitHub repository for manifest changes
+- **Features**:
+  - Automated deployment when images are pushed to GHCR
+  - Self-healing and pruning of Kubernetes resources
+  - Declarative deployment from Git repository
 
-### **🐳 Docker Container Deployment**
-- **Method**: Multi-container Docker Compose setup
-- **Components**: Spring Boot API + PostgreSQL database
-- **Access**: `http://localhost:8080/api/tasks`
-- **Features**: Development-friendly with hot reload
-- **Use Case**: Local development and containerized environments
+### **5) ☸️ Kubernetes Deployment**
+- **Action**: ArgoCD applies Kubernetes manifests to run the app
+- **Tech**: Kubernetes (MicroK8s for local/dev; can be any K8s for prod)
+- **What it does**:
+  - Runs Pods with your GHCR container image (3 replicas, resource limits)
+  - Provides Services (`tasklistapp-service`) for internal discovery
+  - Ingress (`tasklistapp-ingress`) for external traffic
+  - Health checks (liveness/readiness probes via `/actuator/health`)
+  - Rolling updates and self-healing
+- **Files involved**:
+  - `/k8s/deployment.yaml` (TasklistApp pods)
+  - `/k8s/service.yaml` (internal service)
+  - `/k8s/ingress.yaml` (external access)
+  - `/k8s/configmap.yaml` (environment config)
+  - `/k8s/secrets.yaml` (database credentials)
+- **Why**: Scalability, self-healing, consistent runtime environment
 
-### **🖥️ VM Service Deployment**
-- **Method**: Systemd service on Linux VM
-- **Components**: Spring Boot JAR + PostgreSQL (shared container)
-- **Access**: `http://vm-ip:8080/api/tasks`
-- **Features**: Production-grade service management
-- **Use Case**: Production servers and dedicated hosting
+### **6) Persistent data: PostgreSQL (containerized)**
+- **Action**: App connects to DB and stores data
+- **Tech**: PostgreSQL running as Docker container (or Kubernetes StatefulSet)
+- **What it does**:
+  - Persistent storage for tasks (`task` table)
+  - Shared across Docker, VM, and Kubernetes environments via networking
+  - PersistentVolumeClaim in Kubernetes ensures data survival
+  - Connection via `DB_URL=jdbc:postgresql://tasklist-postgres:5432/tasklistdb`
+- **Why**: Durable, consistent data accessible by all deployment methods
 
-### **🔧 Environment Variables**
-All deployments use environment-based configuration (no hardcoded values):
+### **7) VM / local service (non-k8s deployment)**
+- **Action**: Deploy JAR directly on VM for staging/production
+- **Tech**: Systemd service on Ubuntu/WSL VM (`vm/tasklist.service`)
+- **What it does**:
+  - Runs JAR as managed service (`sudo systemctl start tasklist`)
+  - Uses environment variables for DB connection and configuration
+  - Connects to shared PostgreSQL database
+  - Logs to `/opt/tasklist/logs/tasklist.log`
+- **Files involved**: `/vm/deploy.sh`, `/vm/service/tasklist.service`
+- **Why**: Lighter-weight option for dev/staging when Kubernetes isn't needed
+- **Trigger**: GitHub Actions `vm-deploy.yml` workflow or manual deployment
 
-```env
-# Database Configuration
-DB_URL=jdbc:postgresql://host:5432/tasklistdb
-DB_USERNAME=postgres
-DB_PASSWORD=admin
+### **8) Orchestration / provisioning for hosts**
+- **Action**: Provision or update VMs, install Docker/MicroK8s, copy manifests or JARs
+- **Tech**: Ansible (playbooks: `ansible/provision.yml`, `ansible/deploy.yml`)
+- **What it does**:
+  - Ensures consistent environment on VMs (install Java 17, Docker, create users, directories)
+  - Provisions single VM or scales to multiple VMs
+  - Pulls images/manifests and applies them (idempotent)
+  - Configures systemd services and firewall rules
+- **Files involved**: `/ansible/inventory.ini`, `/ansible/provision.yml`, `/ansible/deploy.yml`
+- **Why**: Scale to many VMs without manual per-VM changes (solves changing IP problem)
+- **Usage**:
+  ```bash
+  # Provision VM
+  ansible-playbook -i ansible/inventory.ini ansible/provision.yml
 
-# Application Configuration
-SERVER_PORT=8080
-
-# JPA Configuration
-JPA_DDL_AUTO=update
-JPA_SHOW_SQL=true
-
-# Logging Configuration
-LOG_LEVEL_SPRING=INFO
-LOG_LEVEL_TASKLIST=DEBUG
-LOG_FILE=/opt/tasklist/logs/tasklist.log
-```
-
-### **🔄 Cross-Deployment Consistency**
-Both Docker and VM deployments connect to the same PostgreSQL database, ensuring data consistency across environments.
+  # Deploy application
+  ansible-playbook -i ansible/inventory.ini ansible/deploy.yml
+  ```
 
 ## 🏗️ Architecture
 
@@ -230,20 +292,24 @@ Both Docker and VM deployments connect to the same PostgreSQL database, ensuring
 |-----------|--------|---------|
 | **Spring Boot API (Docker)** | ✅ Running | Port 8080, 16.6s startup time |
 | **Spring Boot API (VM)** | ✅ Running | Port 8080, systemd service |
+| **Spring Boot API (Kubernetes)** | ✅ Ready | 3 replicas, ArgoCD GitOps |
 | **PostgreSQL Database** | ✅ Connected | tasklistdb, task table created |
 | **Docker Containers** | ✅ Active | tasklist-postgres, tasklist-api |
 | **VM Deployment** | ✅ Deployed | Systemd service operational |
+| **Kubernetes Deployment** | ✅ Configured | MicroK8s + ArgoCD ready |
 | **API Endpoints** | ✅ Ready | All CRUD operations functional |
 | **Swagger UI** | ✅ Available | Interactive API documentation |
 | **Database Persistence** | ✅ Configured | Docker volumes + shared access |
-| **Cross-Deployment Data** | ✅ Verified | Both APIs access same database |
+| **Cross-Deployment Data** | ✅ Verified | All deployments access same database |
+| **GitHub Container Registry** | ✅ Active | Images pushed to GHCR |
 
 ### **📊 Live Metrics**
-- **Startup Time**: 16.6 seconds (Docker), ~3 seconds (VM)
-- **Database Connections**: Active and healthy (shared)
-- **Memory Usage**: Optimized multi-stage build + systemd limits
-- **Network**: Inter-container + cross-environment communication
-- **Data Consistency**: ✅ Verified between Docker and VM deployments
+- **Startup Time**: 16.6 seconds (Docker), ~3 seconds (VM), ~30 seconds (Kubernetes)
+- **Database Connections**: Active and healthy (shared across all deployments)
+- **Memory Usage**: Optimized multi-stage build + systemd limits + Kubernetes requests/limits
+- **Network**: Inter-container + cross-environment + cluster communication
+- **Data Consistency**: ✅ Verified across Docker, VM, and Kubernetes deployments
+- **GitOps Sync**: ✅ ArgoCD monitoring and auto-sync enabled
 
 ## 📁 Project Structure
 
@@ -301,24 +367,38 @@ docker-compose up -d --build
 ### **Access Your Live Application**
 - **🖥️ Docker API**: http://localhost:8080/api/tasks
 - **🖥️ VM API**: http://172.18.253.249:8080/api/tasks
-- **📚 Swagger UI**: Available on both deployments
-- **🔍 API Docs**: Available on both deployments
-- **❤️ Health Check**: Available on both deployments
+- **☸️ Kubernetes API**: http://your-cluster-ip/api/tasks (via ingress)
+- **📚 Swagger UI**: Available on all deployments
+- **🔍 API Docs**: Available on all deployments
+- **❤️ Health Check**: Available on all deployments
 
 ### **Default Application URLs**
 ```bash
-# API Endpoints (Both Deployments)
+# API Endpoints (All Deployments)
 GET  http://localhost:8080/api/tasks          # Docker API - Get all tasks
 GET  http://172.18.253.249:8080/api/tasks     # VM API - Get all tasks
+GET  http://your-cluster-ip/api/tasks         # Kubernetes API - Get all tasks
 POST http://localhost:8080/api/tasks          # Create new task
 GET  http://localhost:8080/api/tasks/{id}     # Get task by ID
 PUT  http://localhost:8080/api/tasks/{id}     # Update task
 DELETE http://localhost:8080/api/tasks/{id}  # Delete task
 
-# Documentation & Monitoring (Both Deployments)
+# Documentation & Monitoring (All Deployments)
 Swagger UI: http://localhost:8080/swagger-ui.html
 API Docs:   http://localhost:8080/api-docs
 Health:     http://localhost:8080/actuator/health
+```
+
+### **Kubernetes Access (NEW)**
+```bash
+# Port forward to access Kubernetes deployment
+kubectl port-forward svc/tasklistapp-service 8080:80 -n tasklistapp
+
+# Or use ingress (if configured)
+curl http://your-cluster-ip/api/tasks
+
+# Check ArgoCD sync status
+kubectl get applications -n argocd
 ```
 
 ### **PostgreSQL Access**
@@ -472,9 +552,10 @@ docker exec -it tasklist-postgres psql -U postgres -d tasklistdb -c "SELECT * FR
 3. Make your changes with environment variables in mind
 4. Test with `docker-compose up --build`
 5. Test VM deployment: `./vm/deploy.sh`
-6. Commit your changes: `git commit -m 'Add amazing feature'`
-7. Push to the branch: `git push origin feature/amazing-feature`
-8. Open a Pull Request
+6. Test Kubernetes deployment: `./k8s/deploy.sh` (NEW)
+7. Commit your changes: `git commit -m 'Add amazing feature'`
+8. Push to the branch: `git push origin feature/amazing-feature`
+9. Open a Pull Request
 
 ## 📄 License
 
@@ -485,8 +566,14 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - **Spring Boot** - The framework that powers this API
 - **PostgreSQL** - Robust and reliable database
 - **Docker** - Containerization made easy
+- **Kubernetes & MicroK8s** - Scalable container orchestration
+- **ArgoCD** - GitOps continuous delivery for Kubernetes
+- **GitHub Actions** - CI/CD pipeline automation
+- **GitHub Container Registry** - Secure container image storage
 - **OpenAPI/Swagger** - API documentation
 
 ---
 
-**🎉 Status: FULLY OPERATIONAL** - Your TasklistApp is live on both Docker and VM with shared database! 🚀
+**🎉 Status: FULLY OPERATIONAL** - Your TasklistApp is live on Docker, VM, and Kubernetes with shared database and GitOps deployment! 🚀
+
+**✨ NEW**: Complete Kubernetes deployment with ArgoCD GitOps integration for automated, scalable production deployments!

@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tasklistapp-postgresql-deployment
+  labels:
+    app: tasklistapp-postgresql
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tasklistapp-postgresql
+  template:
+    metadata:
+      labels:
+        app: tasklistapp-postgresql
+    spec:
+      containers:
+      - name: postgresql
+        image: ghcr.io/slmakomazi/tasklistapp:db-latest
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_DB
+          value: "tasklistdb"
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: tasklistapp-secrets
+              key: db-username
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: tasklistapp-secrets
+              key: db-password
+        volumeMounts:
+        - name: postgres-data
+          mountPath: /var/lib/postgresql/data
+      volumes:
+      - name: postgres-data
+        persistentVolumeClaim:
+          claimName: tasklistapp-postgres-pvc

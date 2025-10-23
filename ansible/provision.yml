@@ -1,0 +1,210 @@
+---
+# TasklistApp VM Provisioning Playbook
+# Provisions Ubuntu/Debian VMs for TasklistApp deployment
+# Supports single VM or multiple VMs scaling
+
+- name: Provision TasklistApp VM(s)
+  hosts: vm_servers
+  become: yes
+  gather_facts: yes
+
+  vars:
+    java_version: "17"
+    app_user: "{{ app_user }}"
+    app_group: "{{ app_group }}"
+    app_base_dir: "{{ app_base_dir }}"
+    service_name: "{{ service_name }}"
+
+  tasks:
+    # Update system packages
+    - name: Update apt package cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Upgrade all packages
+      apt:
+        upgrade: dist
+        autoremove: yes
+        autoclean: yes
+
+    # Install required system packages
+    - name: Install required system packages
+      apt:
+        name:
+          - curl
+          - wget
+          - git
+          - htop
+          - net-tools
+          - ufw
+        state: present
+
+    # Install Java 17
+    - name: Install OpenJDK 17
+      apt:
+        name: openjdk-17-jdk
+        state: present
+
+    - name: Verify Java installation
+      command: java -version
+      register: java_version_check
+      changed_when: false
+
+    - name: Display Java version
+      debug:
+        msg: "Java version installed: {{ java_version_check.stdout }}"
+
+    # Create application user and directories
+    - name: Create tasklist application user
+      user:
+        name: "{{ app_user }}"
+        system: yes
+        shell: /bin/false
+        create_home: no
+        state: present
+
+    - name: Create application directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+        mode: '0755'
+      loop:
+        - "{{ app_base_dir }}"
+        - "{{ app_base_dir }}/app"
+        - "{{ app_base_dir }}/logs"
+        - "{{ app_base_dir }}/scripts"
+
+    # Configure firewall
+    - name: Allow SSH through UFW
+      ufw:
+        rule: allow
+        port: '22'
+
+    - name: Allow application port through UFW
+      ufw:
+        rule: allow
+        port: '8080'
+
+    - name: Enable UFW firewall
+      ufw:
+        state: enabled
+        policy: deny
+
+    # Install and configure Docker (for database container)
+    - name: Install Docker prerequisites
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - gnupg
+          - lsb-release
+        state: present
+
+    - name: Add Docker GPG key
+      get_url:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        dest: /etc/apt/keyrings/docker.asc
+        mode: '0644'
+
+    - name: Add Docker repository
+      lineinfile:
+        path: /etc/apt/sources.list.d/docker.list
+        line: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        create: yes
+
+    - name: Update apt cache after adding Docker repo
+      apt:
+        update_cache: yes
+
+    - name: Install Docker
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-compose-plugin
+        state: present
+
+    - name: Start and enable Docker service
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Add user to docker group
+      user:
+        name: "{{ app_user }}"
+        groups: docker
+        append: yes
+
+    # Install systemd service for TasklistApp
+    - name: Copy systemd service file
+      copy:
+        src: ../vm/service/tasklist.service
+        dest: /etc/systemd/system/{{ service_name }}.service
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Reload systemd daemon
+      systemd:
+        daemon_reload: yes
+
+    - name: Enable tasklist service
+      systemd:
+        name: "{{ service_name }}"
+        enabled: yes
+
+    # Create deployment script
+    - name: Copy deployment script
+      copy:
+        src: ../vm/deploy.sh
+        dest: "{{ app_base_dir }}/scripts/deploy.sh"
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+        mode: '0755'
+
+    # Create log file
+    - name: Create application log file
+      file:
+        path: "{{ app_base_dir }}/logs/tasklist.log"
+        state: touch
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+        mode: '0644'
+
+    # Create application configuration template
+    - name: Create application properties template
+      template:
+        src: ../templates/application.properties.j2
+        dest: "{{ app_base_dir }}/app/application.properties"
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+        mode: '0644'
+
+    # Display completion message
+    - name: Display provisioning completion
+      debug:
+        msg: |
+          VM provisioning completed successfully!
+
+          Application Details:
+          - User: {{ app_user }}
+          - Base Directory: {{ app_base_dir }}
+          - Service: {{ service_name }}
+          - Log File: {{ app_base_dir }}/logs/tasklist.log
+
+          Next Steps:
+          1. Copy your JAR file to {{ app_base_dir }}/app/tasklist-api.jar
+          2. Update database connection in {{ app_base_dir }}/app/application.properties
+          3. Start service: sudo systemctl start {{ service_name }}
+          4. Check status: sudo systemctl status {{ service_name }}
+          5. View logs: sudo tail -f {{ app_base_dir }}/logs/tasklist.log
+
+          Database Connection (update in application.properties):
+          - Host: {{ db_host }}:{{ db_port }}
+          - Database: {{ db_name }}
+          - Username: {{ db_user }}

@@ -320,6 +320,21 @@ docker-compose up --build
 curl http://localhost:8080/api/tasks
 ```
 
+### Kubernetes Deployment
+```bash
+# Build and push to GitHub Container Registry (via CI/CD)
+# Images automatically available at: ghcr.io/slmakomazi/tasklistapp:api-latest
+
+# Deploy to Kubernetes (from project root)
+cd ../k8s
+./deploy.sh
+
+# Or via ArgoCD (automatic sync)
+# Access ArgoCD dashboard for monitoring
+kubectl port-forward svc/argocd-server -n argocd 8080:443
+# Username: admin, Password: (from kubectl get secret argocd-initial-admin-secret)
+```
+
 ### VM Deployment
 ```bash
 # Build JAR file
@@ -372,5 +387,6 @@ mvn clean package -DskipTests
 
 - **Main Project**: [../README.md](../README.md) - Complete project overview
 - **Database Setup**: [../database/README.md](../database/README.md) - Database management
+- **Kubernetes Deployment**: [../k8s/README.md](../k8s/README.md) - Kubernetes deployment guide (NEW)
 - **VM Deployment**: [../vm/README.md](../vm/README.md) - VM deployment guide
 - **CI/CD Workflows**: [../.github/workflows/README.md](../.github/workflows/README.md) - Pipeline documentation

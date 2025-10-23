@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tasklistapp-config
+data:
+  # Application configuration for Kubernetes environment
+  LOG_LEVEL_SPRING: "INFO"
+  LOG_LEVEL_TASKLIST: "INFO"
+  SERVER_PORT: "8080"
+  JPA_SHOW_SQL: "false"
+  SPRING_PROFILES_ACTIVE: "kubernetes"

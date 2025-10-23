@@ -26,8 +26,9 @@ This directory contains the PostgreSQL database configuration for the TasklistAp
 - **Environment Configuration** - No hardcoded values
 - **Health Checks** - Automatic readiness verification
 - **Network Isolation** - Secure inter-container communication
-- **Multi-Instance Ready** - Supports local + VM architecture
+- **Multi-Instance Ready** - Supports local + VM + Kubernetes architecture
 - **Production Security** - Configurable credentials
+- **Kubernetes Ready** - StatefulSet deployment with persistent volumes
 
 ## Setup Instructions
 
@@ -306,8 +307,60 @@ docker exec tasklist-postgres psql -U postgres -c "\du"
 docker exec tasklist-postgres psql -U postgres -c "ALTER USER postgres PASSWORD 'newpassword';"
 ```
 
+## Kubernetes Deployment
+
+The PostgreSQL database can also be deployed to Kubernetes using the manifests in the `../k8s/` directory.
+
+### Kubernetes PostgreSQL Architecture
+
+- **Deployment**: StatefulSet for stateful database deployment
+- **Persistent Storage**: PersistentVolumeClaim for data persistence
+- **Service**: ClusterIP service for internal cluster access
+- **Configuration**: Secrets for credentials, ConfigMap for configuration
+
+### Deploy PostgreSQL to Kubernetes
+
+```bash
+# Apply PostgreSQL Kubernetes manifests
+kubectl apply -f ../k8s/postgres-pvc.yaml
+kubectl apply -f ../k8s/postgres-service.yaml
+kubectl apply -f ../k8s/postgres-deployment.yaml
+
+# Wait for deployment to be ready
+kubectl wait --for=condition=available --timeout=300s deployment/tasklistapp-postgresql-deployment -n tasklistapp
+
+# Check status
+kubectl get pods -l app=tasklistapp-postgresql -n tasklistapp
+```
+
+### Kubernetes Database Access
+
+The Spring Boot application in Kubernetes connects to PostgreSQL using the Kubernetes service:
+
+```bash
+# From within Kubernetes cluster
+DB_URL=jdbc:postgresql://tasklistapp-postgresql-service:5432/tasklistdb
+```
+
+### Backup and Recovery
+
+```bash
+# Create backup of PersistentVolume
+kubectl exec tasklistapp-postgresql-deployment-0 -n tasklistapp -- pg_dump -U postgres tasklistdb > backup.sql
+
+# Restore from backup
+kubectl exec -i tasklistapp-postgresql-deployment-0 -n tasklistapp -- psql -U postgres tasklistdb < backup.sql
+```
+
+### Scaling Considerations
+
+- PostgreSQL StatefulSets provide stable network identities
+- Persistent volumes ensure data survival across pod restarts
+- For production, consider PostgreSQL Operator for advanced features
+
 ## Related Documentation
 
 - **Main Project**: [../README.md](../README.md) - Complete project overview
 - **Spring Boot App**: [../app/README.md](../app/README.md) - Application development guide
+- **Kubernetes Deployment**: [../k8s/README.md](../k8s/README.md) - Kubernetes deployment guide (NEW)
 - **VM Deployment**: [../vm/README.md](../vm/README.md) - VM deployment guide

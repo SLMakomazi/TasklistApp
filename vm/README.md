@@ -1,6 +1,6 @@
 # VM Deployment - TasklistApp
 
-This directory contains the VM deployment configuration for the TasklistApp. The VM deployment runs the Spring Boot application as a systemd service and connects to the same PostgreSQL database used by the Docker deployment.
+This directory contains the VM deployment configuration for the TasklistApp. The VM deployment runs the Spring Boot application as a systemd service and connects to the same PostgreSQL database used by the Docker and Kubernetes deployments.
 
 ## Table of Contents
 
@@ -21,7 +21,7 @@ This directory contains the VM deployment configuration for the TasklistApp. The
 │  ┌─────────────────────────────────────────────────────┐    │
 │  │            tasklist-postgres Container           │    │
 │  │  • PostgreSQL 16 Database                          │    │
-│  │  • Shared with Docker deployment                   │    │
+│  │  • Shared with Docker & Kubernetes deployments     │    │
 │  │  • Persistent Docker volume                        │    │
 │  └─────────────────────────────────────────────────────┘    │
 │                    │ Docker Network                     │
@@ -29,7 +29,14 @@ This directory contains the VM deployment configuration for the TasklistApp. The
 │  │              VM Host Machine                     │    │
 │  │  • Spring Boot JAR deployed                        │    │
 │  │  • Systemd service management                      │    │
-│  │  • Connects to Docker PostgreSQL                   │    │
+│  │  • Connects to shared PostgreSQL                   │    │
+│  └─────────────────────────────────────────────────────┘    │
+│                    │ GitHub Container Registry           │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │              Kubernetes Cluster                    │    │
+│  │  • MicroK8s with ArgoCD GitOps                     │    │
+│  │  • Multi-replica deployment                        │    │
+│  │  • Shared PostgreSQL database                      │    │
 │  └─────────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────────┘
          │
@@ -37,17 +44,31 @@ This directory contains the VM deployment configuration for the TasklistApp. The
 ┌─────────────────────────────────────────────────────┐
 │              Access Points                       │
 ├─────────────────────────────────────────────────────┤
-│  • VM API: http://vm-ip:8080/api/tasks       │
-│  • VM Swagger: http://vm-ip:8080/swagger-ui.html │
+│  • VM API: http://vm-ip:8080/api/tasks              │
+│  • Kubernetes API: http://cluster-ip/api/tasks     │
+│  • VM Swagger: http://vm-ip:8080/swagger-ui.html    │
 │  • Docker API: http://localhost:8080/api/tasks      │
 └─────────────────────────────────────────────────────┘
 ```
 
 ### Key Features
 - **Systemd Service** - Production-grade service management
-- **Shared Database** - Same PostgreSQL as Docker deployment
-- **Data Consistency** - Both deployments access same data
+- **Shared Database** - Same PostgreSQL as Docker and Kubernetes deployments
+- **Data Consistency** - All deployments access same data
 - **Hot Deployment** - Update JAR without downtime
+- **Alternative to Kubernetes** - For environments where Kubernetes is not suitable
+
+### Deployment Options Comparison
+
+| Feature | VM Deployment | Kubernetes Deployment |
+|---------|---------------|----------------------|
+| **Scalability** | Single instance | Multi-replica |
+| **Management** | Manual systemd | ArgoCD GitOps |
+| **Updates** | Manual JAR replacement | Automatic via Git |
+| **Resources** | Single server | Cluster orchestration |
+| **Complexity** | Simple | More complex |
+| **Use Case** | Single server, dedicated hosting | Cloud-native, scalable apps |
+
 - **Service Monitoring** - Logs and status checking
 - **Security** - Non-root service execution
 
