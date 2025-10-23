@@ -6,6 +6,7 @@ This directory contains the VM deployment configuration for the TasklistApp. The
 
 - [VM Deployment Overview](#vm-deployment-overview)
 - [VM Setup](#vm-setup)
+- [GitHub Actions Runner Setup](#github-actions-runner-setup)
 - [Application Deployment](#application-deployment)
 - [Service Management](#service-management)
 - [Service Configuration](#service-configuration)
@@ -130,6 +131,161 @@ sudo chmod 755 /opt/tasklist/scripts
 ├── logs/
 │   └── tasklist.log             # Application logs
 └── scripts/                     # Optional deployment scripts
+```
+
+## GitHub Actions Runner Setup
+
+The VM deployment includes a GitHub Actions self-hosted runner that automatically picks up deployment jobs from your GitHub repository. This enables automated CI/CD deployment to the VM.
+
+### Complete Workflow Process
+
+#### Step 1: Push Changes to GitHub
+```bash
+# From your development machine
+git add .
+git commit -m "Your changes"
+git push origin main
+```
+
+#### Step 2: Start the Runner on VM
+```bash
+# SSH to your VM and navigate to runner directory
+cd ~/actions-runner
+
+# Start the runner (this connects to GitHub Actions)
+./run.sh
+```
+
+**Expected Output:**
+```
+√ Connected to GitHub
+
+Current runner version: '2.320.0'
+2025-10-23 15:11:40Z: Listening for Jobs
+```
+
+#### Step 3: Trigger Deployment
+The `vm-deploy.yml` workflow will automatically:
+1. Build your Spring Boot application
+2. Deploy it to the VM
+3. Start the systemd service
+4. Verify the deployment
+
+#### Step 4: Monitor the Process
+```bash
+# On VM - Watch deployment in real-time
+sudo journalctl -u actions-runner -f
+
+# Check if service starts successfully
+sudo systemctl status tasklist
+
+# View application logs
+sudo tail -f /opt/tasklist/logs/tasklist.log
+```
+
+### Architecture with Runner
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    GitHub Actions Workflow              │
+├─────────────────────────────────────────────────────────────┤
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │              GitHub.com                             │    │
+│  │  • Triggers on push to main branch                  │    │
+│  │  • Sends job to self-hosted runner                  │    │
+│  └─────────────────────────────────────────────────────┘    │
+│                    │ SSH/HTTPS Connection               │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │               VM Runner                             │    │
+│  │  • Listens for GitHub jobs                          │    │
+│  │  • Executes vm-deploy.yml workflow                  │    │
+│  │  • Deploys application to VM                        │    │
+│  └─────────────────────────────────────────────────────┘    │
+│                    │ Systemd Service                   │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │            TasklistApp Service                      │    │
+│  │  • Spring Boot application                          │    │
+│  │  • Connects to PostgreSQL                           │    │
+│  │  • Serves API endpoints                             │    │
+│  └─────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Runner Setup Prerequisites
+
+- **GitHub Repository**: Must have a `vm-deploy.yml` workflow configured
+- **Runner Token**: Personal Access Token with `repo` permissions
+- **Network Access**: VM must be able to connect to GitHub (github.com)
+- **User Account**: Runner should run as non-root user
+
+### Runner Management
+
+#### Start Runner
+```bash
+# Option 1: Manual start (recommended for deployment)
+cd ~/actions-runner
+./run.sh
+
+# Option 2: As systemd service
+sudo systemctl start actions-runner
+```
+
+#### Stop Runner
+```bash
+# Stop the service
+sudo systemctl stop actions-runner
+
+# Or kill the process
+pkill -f "actions.runner"
+```
+
+#### Check Runner Status
+```bash
+# Check service status
+sudo systemctl status actions-runner
+
+# Check if runner process is running
+ps aux | grep -i runner
+
+# View real-time logs
+sudo journalctl -u actions-runner -f
+```
+
+### Troubleshooting Runner Issues
+
+#### Runner Won't Start
+```bash
+# Check runner configuration
+cd ~/actions-runner
+./config.sh --check
+
+# Verify network connectivity
+ping github.com
+
+# Check runner logs
+sudo journalctl -u actions-runner -n 100
+```
+
+#### Runner Not Picking Up Jobs
+```bash
+# Check if runner is registered on GitHub
+# Go to Repository Settings → Actions → Runners
+
+# Verify runner is running and listening
+ps aux | grep -i runner
+
+# Check runner logs for connection errors
+sudo journalctl -u actions-runner -f | grep -i error
+```
+
+#### Authentication Issues
+```bash
+# Reconfigure runner with new token
+cd ~/actions-runner
+./config.sh --url https://github.com/YOUR_USERNAME/YOUR_REPOSITORY --token NEW_TOKEN
+
+# Restart runner service
+sudo systemctl restart actions-runner
 ```
 
 ## Application Deployment

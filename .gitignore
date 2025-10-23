@@ -76,3 +76,6 @@ spring.log
 # Application logs
 logs/
 *.log
+
+# GitHub Actions Runner
+actions-runner/
