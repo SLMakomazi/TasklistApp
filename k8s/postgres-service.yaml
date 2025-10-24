@@ -2,6 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: tasklistapp-postgresql-service
+  namespace: tasklistapp
   labels:
     app: tasklistapp-postgresql
 spec:

@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: tasklistapp-postgresql-deployment
+  namespace: tasklistapp
   labels:
     app: tasklistapp-postgresql
 spec:

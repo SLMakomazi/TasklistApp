@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: tasklistapp-deployment
+  namespace: tasklistapp
   labels:
     app: tasklistapp
 spec:
@@ -27,11 +28,13 @@ spec:
             secretKeyRef:
               name: tasklistapp-secrets
               key: db-username
+              namespace: tasklistapp
         - name: DB_PASSWORD
           valueFrom:
             secretKeyRef:
               name: tasklistapp-secrets
               key: db-password
+              namespace: tasklistapp
         - name: JPA_DDL_AUTO
           value: "validate"
         - name: JPA_SHOW_SQL
