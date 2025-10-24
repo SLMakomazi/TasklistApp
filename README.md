@@ -179,13 +179,13 @@ kubectl get applications tasklistapp -n argocd
 ### Step 7: Access Your Application
 ```bash
 # Port-forward the application (avoiding port conflicts)
-kubectl port-forward -n tasklistapp svc/tasklistapp-service 8081:80
+kubectl port-forward -n tasklistapp svc/tasklistapp-service 8080:80
 
 # Alternative application access:
-# kubectl port-forward -n tasklistapp svc/tasklistapp-service 8082:80
+# kubectl port-forward -n tasklistapp svc/tasklistapp-service 8081:80
 
-# Access at: http://localhost:8081/api/tasks
-# Swagger UI: http://localhost:8081/swagger-ui.html
+# Access at: http://localhost:8080/api/tasks
+# Swagger UI: http://localhost:8080/swagger-ui.html
 ```
 
 ## 🔐 Secrets Management

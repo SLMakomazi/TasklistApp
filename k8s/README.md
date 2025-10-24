@@ -638,28 +638,181 @@ kube-bench run --targets=master,node
 
 ## 📊 Access and Testing
 
-### Port Forwarding (for development/testing)
+### Port Forwarding for Local Development
+
+Port forwarding allows you to access your Kubernetes services locally for testing and management. Each port forward requires a dedicated terminal session.
+
+#### Terminal 1: ArgoCD UI Access
 ```bash
-# Access ArgoCD dashboard
+# Port-forward ArgoCD dashboard (keep this terminal active)
 kubectl port-forward svc/argocd-server -n argocd 9090:443
-# Access: https://localhost:9090
 
-# Access TasklistApp API
-kubectl port-forward -n tasklistapp svc/tasklistapp-service 8081:80
-# Access: http://localhost:8081/api/tasks
+# Alternative ports if 9090 is taken:
+# kubectl port-forward svc/argocd-server -n argocd 9091:443
+# kubectl port-forward svc/argocd-server -n argocd 8081:443
+```
 
-# Access PostgreSQL (if needed)
-kubectl port-forward -n tasklistapp svc/tasklistapp-postgresql-service 5432:5432
+**ArgoCD Access:**
+- **URL**: https://localhost:9090
+- **Username**: admin
+- **Password**: Get initial password with:
+  ```bash
+  kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d && echo
+  ```
+
+**⚠️ Important**: Keep this terminal session active while using ArgoCD UI. Closing the terminal will disconnect the port forward.
+
+#### Terminal 2: TasklistApp Backend API (Postman/curl)
+```bash
+# Port-forward TasklistApp service (keep this terminal active)
+kubectl port-forward -n tasklistapp svc/tasklistapp-service 8080:80
+
+# Alternative ports if 8080 is taken:
+# kubectl port-forward -n tasklistapp svc/tasklistapp-service 8081:80
+# kubectl port-forward -n tasklistapp svc/tasklistapp-service 8082:80
+```
+
+**TasklistApp API Access:**
+- **Base URL**: http://localhost:8080
+- **API Endpoints**: http://localhost:8080/api/tasks
+- **Health Check**: http://localhost:8080/actuator/health
+- **Swagger UI**: http://localhost:8080/swagger-ui.html
+
+**⚠️ Important**: Keep this terminal session active while testing the API. Closing the terminal will disconnect the port forward.
+
+#### Running Both Simultaneously
+You can run both port forwards simultaneously using separate terminals:
+
+**Terminal 1 (ArgoCD Management):**
+```bash
+kubectl port-forward svc/argocd-server -n argocd 9090:443
+# Access: https://localhost:9090 (admin / [password command above])
+```
+
+**Terminal 2 (API Testing):**
+```bash
+kubectl port-forward -n tasklistapp svc/tasklistapp-service 8080:80
+# Access: http://localhost:8080/api/tasks
+```
+
+### API Testing with Postman or curl
+
+Once the TasklistApp port forward is active, you can test the API:
+
+#### curl Examples
+```bash
+# Health check
+curl http://localhost:8080/actuator/health
+
+# Get all tasks
+curl http://localhost:8080/api/tasks
+
+# Create a new task
+curl -X POST http://localhost:8080/api/tasks \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Test Task","description":"Testing via curl","completed":false}'
+
+# Update a task
+curl -X PUT http://localhost:8080/api/tasks/1 \
+  -H "Content-Type: application/json" \
+  -d '{"completed":true}'
+
+# Delete a task
+curl -X DELETE http://localhost:8080/api/tasks/1
+```
+
+#### Postman Collection
+Import these endpoints into Postman for easy testing:
+
+**GET All Tasks**
+```
+GET http://localhost:8080/api/tasks
+```
+
+**POST Create Task**
+```
+POST http://localhost:8080/api/tasks
+Content-Type: application/json
+
+{
+  "title": "New Task",
+  "description": "Task description",
+  "completed": false,
+  "dueDate": "2024-12-31"
+}
+```
+
+**GET Task by ID**
+```
+GET http://localhost:8080/api/tasks/{id}
+```
+
+**PUT Update Task**
+```
+PUT http://localhost:8080/api/tasks/{id}
+Content-Type: application/json
+
+{
+  "completed": true
+}
+```
+
+**DELETE Task**
+```
+DELETE http://localhost:8080/api/tasks/{id}
 ```
 
 ### Health Checks
 ```bash
 # Application health via port-forward
-curl http://localhost:8081/actuator/health
+curl http://localhost:8080/actuator/health
 
 # Database connectivity check
 kubectl exec -it <tasklistapp-pod> -n tasklistapp -- nc -zv tasklistapp-postgresql-service 5432
+
+# ArgoCD application status
+kubectl get applications tasklistapp -n argocd
+
+# Pod health and status
+kubectl get pods -n tasklistapp -o wide
 ```
+
+### Troubleshooting Port Forwarding
+
+#### Port Already in Use
+```bash
+# Check what's using a port
+netstat -tulpn | grep :9090
+
+# Use alternative ports
+kubectl port-forward svc/argocd-server -n argocd 9091:443  # For ArgoCD
+kubectl port-forward -n tasklistapp svc/tasklistapp-service 8081:80  # For API
+```
+
+#### Connection Issues
+```bash
+# Verify services exist
+kubectl get services -n argocd
+kubectl get services -n tasklistapp
+
+# Check pod status
+kubectl get pods -n argocd
+kubectl get pods -n tasklistapp
+
+# View service endpoints
+kubectl get endpoints -n tasklistapp
+```
+
+#### Reset Port Forward
+```bash
+# If port forward stops working, restart it:
+# Terminal 1: Ctrl+C then re-run the port-forward command
+# Terminal 2: Ctrl+C then re-run the port-forward command
+```
+
+---
+
+**💡 Tip**: Use separate terminal tabs or windows for each port forward to keep them organized and easily manageable during development and testing.
 
 ## 🔄 ArgoCD GitOps Integration
 

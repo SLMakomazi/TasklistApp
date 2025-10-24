@@ -31,10 +31,10 @@ kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.pas
 # 8. Deploy app
 kubectl apply -f k8s/argocd-application.yaml
 
-# 9. Port-forward app (port 8081)
-kubectl port-forward -n tasklistapp svc/tasklistapp-service 8081:80 &
+# 9. Port-forward app (port 8080)
+kubectl port-forward -n tasklistapp svc/tasklistapp-service 8080:80 &
 
-# 10. Access: http://localhost:8081/api/tasks
+# 10. Access: http://localhost:8080/api/tasks
 ```
 
 ## 🔧 Key Commands
@@ -50,7 +50,7 @@ kubectl port-forward svc/argocd-server -n argocd 9090:443
 
 # Application
 kubectl get pods -n tasklistapp
-kubectl port-forward -n tasklistapp svc/tasklistapp-service 8081:80
+kubectl port-forward -n tasklistapp svc/tasklistapp-service 8080:80
 
 # Logs
 kubectl logs -l app=tasklistapp -n tasklistapp -f
@@ -62,9 +62,9 @@ echo -n "password" | base64
 ## 🌐 Access URLs
 
 - **ArgoCD**: https://localhost:9090 (admin / [get password])
-- **TasklistApp**: http://localhost:8081/api/tasks
-- **Swagger UI**: http://localhost:8081/swagger-ui.html
-- **Health Check**: http://localhost:8081/actuator/health
+- **TasklistApp**: http://localhost:8080/api/tasks
+- **Swagger UI**: http://localhost:8080/swagger-ui.html
+- **Health Check**: http://localhost:8080/actuator/health
 
 ## 📊 Tech Stack
 
@@ -88,7 +88,7 @@ Developer → GitHub → GitHub Actions → GHCR → ArgoCD → MicroK8s → Tas
 
 1. **Show ArgoCD**: "Here's the GitOps dashboard showing auto-sync"
 2. **Show deployment**: "3 replicas running with health checks"
-3. **Show API**: "Live API with full CRUD operations"
+3. **Show API**: "Live API with full CRUD operations at http://localhost:8080"
 4. **Show persistence**: "Data survives pod restarts"
 5. **Show CI/CD**: "New commits auto-deploy via ArgoCD"
 
@@ -97,6 +97,6 @@ Developer → GitHub → GitHub Actions → GHCR → ArgoCD → MicroK8s → Tas
 - **kubectl fails**: `microk8s kubectl` or check alias
 - **ArgoCD sync fails**: Check secrets base64 encoding
 - **Pods crash**: `kubectl describe pod` + `kubectl logs`
-- **Port conflicts**: Use 9090 for ArgoCD, 8081 for app
+- **Port conflicts**: Use 9090 for ArgoCD, 8080 for app
 
 **Ready for production with GitOps, health checks, and auto-scaling!** 🚀
