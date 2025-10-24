@@ -1,6 +1,8 @@
 # 🚀 TasklistApp - Task Management API
 
-**✅ FULLY OPERATIONAL** - A modern, production-ready task management application built with **Spring Boot 3.3.4**, **PostgreSQL 16**, and **Docker**. This application provides RESTful API endpoints for managing tasks with complete CRUD operations, data persistence, and comprehensive API documentation. It supports multiple deployment strategies including Docker containers, VM-based systemd services, and **Kubernetes with ArgoCD GitOps** - all with automated CI/CD pipelines.
+**Cluster: MicroK8s (WSL2 VM) — ArgoCD: Installed & Running — App: TasklistApp (Ready for Deployment)**
+
+A modern, full-stack task management application built with **Spring Boot 3.3.4**, **PostgreSQL 16**, and **Docker**. Features multiple deployment strategies including Docker containers, VM-based systemd services, and **Kubernetes with ArgoCD GitOps** - all with automated CI/CD pipelines.
 
 ![Java](https://img.shields.io/badge/Java-17-orange)
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.4-brightgreen)
@@ -100,6 +102,142 @@ TasklistApp/                     # 🚀 Main Project Directory
 - **`/database`**: Database setup instructions and configuration for PostgreSQL container management
 - **`/k8s`**: **NEW** - Complete Kubernetes manifests for MicroK8s deployment with ArgoCD GitOps integration
 - **`/.github/workflows`**: GitHub Actions CI/CD pipelines for automated building, testing, and deployment (now uses GitHub Container Registry)
+
+## 🚀 Quickstart - WSL2 + MicroK8s + ArgoCD Setup
+
+### Prerequisites
+- **Windows with WSL2** (Ubuntu installed)
+- **Docker Desktop** or Docker installed
+- **Java 17** for local development (optional)
+
+### Step 1: Setup kubectl Alias
+```bash
+# In WSL Ubuntu terminal
+echo "alias kubectl='microk8s kubectl'" >> ~/.bashrc
+source ~/.bashrc
+```
+
+### Step 2: Start MicroK8s and Enable Addons
+```bash
+# Start MicroK8s cluster
+microk8s start
+microk8s status --wait-ready
+
+# Enable essential addons for TasklistApp
+microk8s enable ingress dns dashboard metrics-server registry hostpath-storage
+
+# Verify cluster
+microk8s kubectl get nodes
+```
+
+### Step 3: Install ArgoCD
+```bash
+# Create ArgoCD namespace
+kubectl create namespace argocd
+
+# Install ArgoCD (includes CRDs)
+kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+
+# Wait for ArgoCD to be ready
+kubectl wait --for=condition=available --timeout=300s deployment/argocd-server -n argocd
+```
+
+### Step 4: Port-Forward ArgoCD UI (Non-Conflicting Port)
+```bash
+# Port-forward ArgoCD UI (avoiding common ports 8080, 3000, 80, 443)
+kubectl port-forward svc/argocd-server -n argocd 9090:443
+
+# Alternative ports if 9090 is taken:
+# kubectl port-forward svc/argocd-server -n argocd 9091:443
+# kubectl port-forward svc/argocd-server -n argocd 8081:443
+```
+
+### Step 5: Get ArgoCD Admin Password
+```bash
+# Get the initial admin password
+kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d && echo
+
+# Access ArgoCD UI at: https://localhost:9090
+# Username: admin
+# Password: (from command above)
+```
+
+### Step 6: Deploy Application via ArgoCD
+```bash
+# Apply ArgoCD application manifest
+kubectl apply -f k8s/argocd-application.yaml
+
+# Check sync status
+kubectl get applications -n argocd
+
+# Check if application synced successfully
+kubectl get applications tasklistapp -n argocd
+
+# View application details and sync status in ArgoCD UI
+```
+
+### Step 7: Access Your Application
+```bash
+# Port-forward the application (avoiding port conflicts)
+kubectl port-forward -n tasklistapp svc/tasklistapp-service 8081:80
+
+# Alternative application access:
+# kubectl port-forward -n tasklistapp svc/tasklistapp-service 8082:80
+
+# Access at: http://localhost:8081/api/tasks
+# Swagger UI: http://localhost:8081/swagger-ui.html
+```
+
+## 🔐 Secrets Management
+
+### Base64 Encoding for Kubernetes Secrets
+```bash
+# Encode username for secrets.yaml
+echo -n "your_username" | base64
+
+# Encode password for secrets.yaml
+echo -n "your_password" | base64
+
+# Update k8s/secrets.yaml with the base64 values
+# Example:
+# db-username: cG9zdGdyZXM=  # "postgres"
+# db-password: YWRtaW4=      # "admin"
+```
+
+### Security Best Practices
+- ✅ **Never commit plaintext secrets** to version control
+- ✅ **Use .gitignore** to exclude secret files
+- ✅ **Base64 encode** all sensitive values in secrets.yaml
+- ✅ **Consider sealed-secrets** for production environments
+- ✅ **Use external secret managers** (AWS Secrets Manager, Azure Key Vault, etc.)
+
+## 🔄 ArgoCD GitOps Integration
+
+### How CI/CD Works with ArgoCD
+1. **Developer pushes code** to GitHub repository
+2. **GitHub Actions CI** builds and tests the application
+3. **Docker images pushed** to GitHub Container Registry (GHCR)
+4. **ArgoCD detects changes** in the k8s/ directory
+5. **ArgoCD syncs manifests** and pulls new images automatically
+6. **Kubernetes deployment updated** with zero-downtime rolling updates
+
+### ArgoCD Application Configuration
+- **Repository**: `https://github.com/slmakomazi/TasklistApp`
+- **Path**: `k8s/` (watches all Kubernetes manifests)
+- **Target Revision**: `HEAD` (always latest commit)
+- **Destination**: `tasklistapp` namespace in local MicroK8s cluster
+- **Sync Policy**: Automated with self-healing and pruning
+
+### CI Integration Example
+```yaml
+# In GitHub Actions workflow (ci-build.yml)
+- name: Update Kubernetes Image Tag
+  run: |
+    sed -i 's|image: ghcr.io/slmakomazi/tasklistapp:.*|image: ghcr.io/slmakomazi/tasklistapp:api-${{ github.run_number }}|' k8s/deployment.yaml
+    git add k8s/deployment.yaml
+    git commit -m "Update image tag to api-${{ github.run_number }}"
+    git push
+```
 
 ## 🚀 CI/CD Pipeline Overview
 

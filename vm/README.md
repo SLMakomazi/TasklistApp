@@ -12,6 +12,118 @@ This directory contains the VM deployment configuration for the TasklistApp. The
 - [Service Configuration](#service-configuration)
 - [Troubleshooting](#troubleshooting)
 
+## 🖥️ MicroK8s Setup in WSL2 Ubuntu
+
+This section covers the complete setup of MicroK8s and ArgoCD in WSL2 Ubuntu environment for local Kubernetes development.
+
+### Prerequisites
+- **Windows 11** with WSL2 enabled
+- **Ubuntu 22.04** installed via Microsoft Store or `wsl --install`
+- **Docker Desktop** (optional, for container development)
+
+### Step 1: Update Ubuntu and Install Snap
+```bash
+# Update package lists
+sudo apt update && sudo apt upgrade -y
+
+# Install snapd (required for MicroK8s)
+sudo apt install snapd -y
+
+# Enable snap socket
+sudo systemctl enable --now snapd.socket
+```
+
+### Step 2: Install MicroK8s
+```bash
+# Install MicroK8s via snap
+sudo snap install microk8s --classic
+
+# Add user to microk8s group
+sudo usermod -aG microk8s $USER
+
+# Apply group changes (or logout/login)
+newgrp microk8s
+```
+
+### Step 3: Start MicroK8s and Enable Addons
+```bash
+# Start MicroK8s cluster
+microk8s start
+
+# Wait for cluster to be ready
+microk8s status --wait-ready
+
+# Enable essential addons for TasklistApp
+microk8s enable ingress dns dashboard metrics-server registry hostpath-storage
+
+# Verify cluster status
+microk8s kubectl get nodes
+```
+
+### Step 4: Setup kubectl Alias
+```bash
+# Add kubectl alias to bashrc
+echo "alias kubectl='microk8s kubectl'" >> ~/.bashrc
+
+# Apply changes
+source ~/.bashrc
+
+# Verify alias works
+kubectl get nodes
+```
+
+### Step 5: Install ArgoCD
+```bash
+# Create ArgoCD namespace
+kubectl create namespace argocd
+
+# Install ArgoCD with all CRDs
+kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+
+# Wait for ArgoCD to be ready
+kubectl wait --for=condition=available --timeout=300s deployment/argocd-server -n argocd
+
+# Check ArgoCD pods
+kubectl get pods -n argocd
+```
+
+### Step 6: Access ArgoCD Dashboard
+```bash
+# Port-forward ArgoCD UI (avoiding common ports)
+kubectl port-forward svc/argocd-server -n argocd 9090:443
+
+# Alternative ports if 9090 is taken:
+# kubectl port-forward svc/argocd-server -n argocd 9091:443
+
+# Access ArgoCD at: https://localhost:9090
+# Username: admin
+# Password: kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
+```
+
+### Step 7: Deploy TasklistApp via ArgoCD
+```bash
+# Apply ArgoCD application manifest
+kubectl apply -f k8s/argocd-application.yaml
+
+# Check application status
+kubectl get applications -n argocd
+
+# Verify sync status
+kubectl describe application tasklistapp -n argocd
+```
+
+### Step 8: Access TasklistApp
+```bash
+# Port-forward TasklistApp (avoiding port conflicts)
+kubectl port-forward -n tasklistapp svc/tasklistapp-service 8081:80
+
+# Alternative ports:
+# kubectl port-forward -n tasklistapp svc/tasklistapp-service 8082:80
+
+# Access at: http://localhost:8081/api/tasks
+# Swagger UI: http://localhost:8081/swagger-ui.html
+```
+
 ## VM Deployment Overview
 
 ### Architecture
