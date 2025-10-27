@@ -20,33 +20,11 @@ spec:
         image: ghcr.io/slmakomazi/tasklistapp:api-latest
         ports:
         - containerPort: 8080
-        env:
-        - name: DB_URL
-          value: "jdbc:postgresql://tasklistapp-postgresql-service:5432/tasklistdb"
-        - name: DB_USERNAME
-          valueFrom:
-            secretKeyRef:
-              name: tasklistapp-secrets
-              key: db-username
-              namespace: tasklistapp
-        - name: DB_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: tasklistapp-secrets
-              key: db-password
-              namespace: tasklistapp
-        - name: JPA_DDL_AUTO
-          value: "validate"
-        - name: JPA_SHOW_SQL
-          value: "false"
-        - name: SERVER_PORT
-          value: "8080"
-        - name: LOG_LEVEL_SPRING
-          value: "INFO"
-        - name: LOG_LEVEL_TASKLIST
-          value: "INFO"
-        - name: SPRING_PROFILES_ACTIVE
-          value: "kubernetes"
+        envFrom:
+        - configMapRef:
+            name: tasklistapp-config
+        - secretRef:
+            name: tasklistapp-secrets
         livenessProbe:
           httpGet:
             path: /actuator/health

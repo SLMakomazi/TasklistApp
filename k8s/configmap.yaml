@@ -10,3 +10,11 @@ data:
   SERVER_PORT: "8080"
   JPA_SHOW_SQL: "false"
   SPRING_PROFILES_ACTIVE: "kubernetes"
+  # Database configuration
+  SPRING_DATASOURCE_URL: "jdbc:postgresql://tasklistapp-postgresql-service:5432/tasklistdb"
+  SPRING_DATASOURCE_USERNAME: "postgres"
+  SPRING_DATASOURCE_PASSWORD: "admin"
+  # JPA/Hibernate configuration - allows table creation
+  SPRING_JPA_HIBERNATE_DDL_AUTO: "update"
+  SPRING_JPA_SHOW_SQL: "true"
+  SPRING_JPA_DATABASE_PLATFORM: "org.hibernate.dialect.PostgreSQLDialect"
