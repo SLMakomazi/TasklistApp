@@ -20,20 +20,39 @@ spec:
         image: ghcr.io/slmakomazi/tasklistapp:api-latest
         ports:
         - containerPort: 8080
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
         envFrom:
         - configMapRef:
             name: tasklistapp-config
         - secretRef:
             name: tasklistapp-secrets
+        startupProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 30  # Allow up to 5 minutes for startup (30 * 10s)
         livenessProbe:
           httpGet:
             path: /actuator/health
             port: 8080
-          initialDelaySeconds: 60
-          periodSeconds: 10
+          initialDelaySeconds: 120  # Wait for startup to complete
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
         readinessProbe:
           httpGet:
             path: /actuator/health
             port: 8080
-          initialDelaySeconds: 30
-          periodSeconds: 5
+          initialDelaySeconds: 90   # Application takes ~106s to start
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
