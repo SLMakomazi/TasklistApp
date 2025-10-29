@@ -1,4 +1,4 @@
-name: CI - Build and Push Containers
+name: Backend CI - Build & Push Image
 
 on:
   workflow_run:
