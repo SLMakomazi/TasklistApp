@@ -52,7 +52,7 @@ spec:
         - name: SPRING_PROFILES_ACTIVE
           value: "kubernetes"
         - name: SPRING_DATASOURCE_URL
-          value: "jdbc:postgresql://tasklistapp-postgresql-service:5432/tasklist"
+          value: "jdbc:postgresql://tasklistapp-postgresql-service:5432/tasklistdb"
         - name: SPRING_DATASOURCE_USERNAME
           value: "postgres"
         - name: SPRING_DATASOURCE_PASSWORD

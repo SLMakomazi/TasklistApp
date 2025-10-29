@@ -5,6 +5,10 @@ resources:
   - namespace.yaml
   - serviceaccount.yaml
   - ghcr-secret.yaml
+  - postgres-manifests/postgres-configmap.yaml
+  - postgres-manifests/postgres-service.yaml
+  - postgres-manifests/postgres-deployment.yaml
+  - postgres-manifests/postgres-pvc.yaml
   - frontend-manifests/frontend-configmap.yaml
   - frontend-manifests/frontend-service.yaml
   - frontend-manifests/frontend-deployment.yaml

@@ -17,12 +17,15 @@ spec:
     spec:
       containers:
       - name: postgresql
-        image: ghcr.io/slmakomazi/tasklistapp:db-latest
+        image: postgres:15-alpine
         ports:
         - containerPort: 5432
         env:
         - name: POSTGRES_DB
-          value: "tasklistdb"
+          valueFrom:
+            configMapKeyRef:
+              name: postgres-config
+              key: POSTGRES_DB
         - name: POSTGRES_USER
           valueFrom:
             secretKeyRef:
@@ -37,11 +40,26 @@ spec:
           value: /var/lib/postgresql/data/pgdata
         - name: POSTGRES_INITDB_ARGS
           value: "--data-checksums"
+        # This allows connections without password for local development
+        # In production, use proper authentication
         - name: POSTGRES_HOST_AUTH_METHOD
           value: "trust"
+        # Mount the init script
         volumeMounts:
+        - name: init-script
+          mountPath: /docker-entrypoint-initdb.d/
         - name: postgres-data
           mountPath: /var/lib/postgresql/data
+      volumes:
+      - name: init-script
+        configMap:
+          name: postgres-config
+          items:
+          - key: init.sql
+            path: init.sql
+      - name: postgres-data
+        persistentVolumeClaim:
+          claimName: tasklistapp-postgres-pvc
         livenessProbe:
           exec:
             command:
