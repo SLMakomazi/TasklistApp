@@ -241,18 +241,46 @@ echo -n "your_password" | base64
 
 ## 🚀 CI/CD Pipeline Overview
 
-The project includes comprehensive GitHub Actions workflows for automated building, testing, and deployment:
+TasklistApp features a robust, sequential CI/CD pipeline using GitHub Actions. The workflows are designed to run in a specific order, with each workflow triggering the next upon successful completion.
 
-### **1. 🔨 Build and Test Pipeline (`ci-build.yml`)**
-- **Purpose**: Builds, tests, and pushes Docker images to GitHub Container Registry
-- **Triggers**: Push to `main`/`develop` branches, Pull Requests
-- **Features**:
-  - Maven dependency caching for faster builds
-  - Unit and integration testing with PostgreSQL service
-  - Multi-stage Docker image building
-  - Automated push to GitHub Container Registry (`ghcr.io/slmakomazi/tasklistapp`)
-  - Build artifact caching for performance
-  - **NEW**: GitHub Container Registry integration for ArgoCD consumption
+### Pipeline Workflow
+
+1. **Test Application** (`ci-testApplication.yml`)
+   - **Trigger**: Push to `main` or `develop` branches, or pull requests to `main`
+   - **Actions**:
+     - Runs unit and integration tests
+     - Builds the application
+     - Generates code coverage reports
+   - **Output**: Test results and coverage reports
+
+2. **Frontend Build** (`ci-frontend-build.yml`)
+   - **Trigger**: After successful test completion
+   - **Actions**:
+     - Builds and pushes the frontend Docker image
+     - Tags images with both `latest` and build number
+   - **Output**: Frontend Docker image in GitHub Container Registry (GHCR)
+
+3. **Backend Build** (`ci-backend-build.yml`)
+   - **Trigger**: After successful frontend build
+   - **Actions**:
+     - Builds and pushes the backend API and database Docker images
+     - Tags images with both `latest` and build number
+   - **Output**: Backend API and database Docker images in GHCR
+
+4. **VM Deploy** (`vm-deploy.yml`)
+   - **Trigger**: Manual trigger only (after successful backend build)
+   - **Actions**:
+     - Deploys the application to a VM using systemd
+     - Manages service lifecycle
+     - Handles zero-downtime deployments
+   - **Output**: Running application on the VM
+
+### Key Features
+- **Sequential Execution**: Each workflow depends on the successful completion of the previous one
+- **Manual Deployment Control**: VM deployment requires explicit approval
+- **Containerized Builds**: Uses Docker for consistent build environments
+- **GitHub Container Registry**: All container images are stored in GHCR
+- **Self-Hosted Runners**: VM deployment uses self-hosted runners for secure access to infrastructure
 
 ### **2. 🧪 Test Pipeline (`ci-test.yml`)**
 - **Purpose**: Runs comprehensive unit and integration tests

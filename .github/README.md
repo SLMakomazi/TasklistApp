@@ -6,41 +6,48 @@ This directory contains the GitHub Actions workflows that automate the build, te
 
 ## 📁 Workflow Files Overview
 
-- `ci-build.yml` - Build and push Docker images to GitHub Container Registry (GHCR)
-- `ci-test.yml` - Run comprehensive unit and integration tests
-- `vm-deploy.yml` - Deploy application to VM via self-hosted runner and systemd
+- `ci-testApplication.yml` - Run comprehensive unit and integration tests
+- `ci-frontend-build.yml` - Build and push frontend Docker image to GitHub Container Registry (GHCR)
+- `ci-backend-build.yml` - Build and push backend API and database Docker images to GHCR
+- `vm-deploy.yml` - Deploy application to VM via self-hosted runner and systemd (manual trigger)
 
 ## 🚀 CI/CD Pipeline Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    GitHub Actions Workflows                 │
+│                    GitHub Actions Workflows                      │
 ├─────────────────────────────────────────────────────────────────┤
 │  ┌─────────────────────────────────────────────────────────┐    │
-│  │              📦 ci-build.yml (Docker Images)           │    │
-│  │  • Build Spring Boot application                       │    │
-│  │  • Create multi-stage Docker images                     │    │
-│  │  • Push to GHCR (ghcr.io/slmakomazi/tasklistapp)        │    │
+│  │              🧪 ci-testApplication.yml                  │    │
+│  │  • Run unit and integration tests                      │    │
+│  │  • Generate code coverage reports                      │    │
 │  │  • Triggered by: Push to main/develop, PR              │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│                    │ Container Images                       │
+│  └───────────────────────────────┬─────────────────────────┘    │
+│                                  ▼                               │
 │  ┌─────────────────────────────────────────────────────────┐    │
-│  │              🔄 ArgoCD GitOps (Kubernetes)             │    │
-│  │  • Detects new GHCR images                              │    │
-│  │  • Auto-syncs Kubernetes manifests                     │    │
-│  │  • Rolling updates with zero downtime                   │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│                    │ Application Updates                    │
+│  │              🖥️ ci-frontend-build.yml                  │    │
+│  │  • Build and push frontend Docker image                │    │
+│  │  • Tag with latest and build number                   │    │
+│  │  • Triggered by: Successful test completion           │    │
+│  └───────────────────────────────┬─────────────────────────┘    │
+│                                  ▼                               │
 │  ┌─────────────────────────────────────────────────────────┐    │
-│  │              🖥️ vm-deploy.yml (VM Deployment)          │    │
-│  │  • Deploy JAR to VM via SSH                             │    │
-│  │  • Update systemd service                              │    │
-│  │  • Triggered by: Push to main                          │    │
+│  │              🚀 ci-backend-build.yml                   │    │
+│  │  • Build and push backend API and database images      │    │
+│  │  • Tag with latest and build number                   │    │
+│  │  • Triggered by: Successful frontend build             │    │
+│  └───────────────────────────────┬─────────────────────────┘    │
+│                                  ▼                               │
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │              🖥️ vm-deploy.yml (Manual Trigger)         │    │
+│  │  • Deploy application to VM via systemd                │    │
+│  │  • Zero-downtime deployment                           │    │
+│  │  • Manual trigger only after successful backend build  │    │
 │  └─────────────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## 🔨 ci-build.yml - Docker Image Pipeline
+## 🧪 ci-testApplication.yml - Testing Pipeline
 
 ### Purpose
 Builds, tests, and pushes optimized Docker images to GitHub Container Registry (GHCR) for use by ArgoCD and Kubernetes deployments.
