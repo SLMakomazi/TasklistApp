@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-config
+  namespace: tasklistapp
+data:
+  # API URL - using HTTPS for secure communication
+  REACT_APP_API_URL: https://api.tasklistapp.local/api
+  # Environment configuration
+  NODE_ENV: development
+  # Public URL for assets and base paths
+  PUBLIC_URL: /
+  # Enable detailed logging in development
+  REACT_APP_DEBUG: "true"
+  # Feature flags can be added here
+  # REACT_APP_FEATURE_X: "enabled"

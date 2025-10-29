@@ -13,8 +13,14 @@ metadata:
     nginx.ingress.kubernetes.io/cors-expose-headers: "Content-Length,Content-Range"
     nginx.ingress.kubernetes.io/enable-cors: "true"
     nginx.ingress.kubernetes.io/proxy-body-size: "0"
+    # Uncomment for production with cert-manager
+    # cert-manager.io/cluster-issuer: "letsencrypt-prod"
 spec:
-  ingressClassName: public
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - api.tasklistapp.local
+    secretName: local-tls  # For local development, replace with 'tasklistapp-tls' in production
   rules:
   - host: api.tasklistapp.local
     http:
@@ -26,7 +32,3 @@ spec:
             name: tasklistapp-service
             port:
               number: 80
-  tls:
-  - hosts:
-    - api.tasklistapp.local
-    secretName: tasklistapp-backend-tls  # Will be managed by cert-manager later

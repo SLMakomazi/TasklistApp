@@ -1,0 +1,47 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Common metadata for all resources
+commonLabels:
+  app.kubernetes.io/name: tasklistapp
+  app.kubernetes.io/instance: tasklistapp
+  app.kubernetes.io/managed-by: argocd
+  app.kubernetes.io/part-of: tasklistapp
+
+# Namespace for all resources
+namespace: tasklistapp
+
+# Resources to include
+resources:
+  - namespace.yaml
+  - serviceaccount.yaml
+  - ghcr-secret.yaml
+  
+  # Frontend
+  - frontend-manifests/frontend-configmap.yaml
+  - frontend-manifests/frontend-service.yaml
+  - frontend-manifests/frontend-deployment.yaml
+  
+  # Backend
+  - backend-manifests/backend-configmap.yaml
+  - backend-manifests/backend-secrets.yaml
+  - backend-manifests/backend-service.yaml
+  - backend-manifests/backend-deployment.yaml
+  
+  # Ingress
+  - ingress/frontend-ingress.yaml
+  - ingress/backend-ingress.yaml
+
+# Add common annotations to all resources
+commonAnnotations:
+  argocd.argoproj.io/sync-options: PruneLast=true
+  argocd.argoproj.io/sync-wave: "0"
+
+# Image overrides
+images:
+  - name: ghcr.io/slmakomazi/tasklistapp-frontend
+    newName: ghcr.io/slmakomazi/tasklistapp-frontend
+    newTag: latest
+  - name: ghcr.io/slmakomazi/tasklistapp
+    newName: ghcr.io/slmakomazi/tasklistapp
+    newTag: api-latest

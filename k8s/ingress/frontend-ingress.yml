@@ -9,11 +9,15 @@ metadata:
     nginx.ingress.kubernetes.io/rewrite-target: /$1
     nginx.ingress.kubernetes.io/cors-allow-origin: "*"
     nginx.ingress.kubernetes.io/cors-allow-methods: "GET, OPTIONS"
-    nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization"
     nginx.ingress.kubernetes.io/enable-cors: "true"
     nginx.ingress.kubernetes.io/proxy-body-size: "0"
 spec:
-  ingressClassName: public
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - tasklistapp.local
+    secretName: local-tls  # For local development, replace with 'tasklistapp-tls' in production
   rules:
   - host: tasklistapp.local
     http:
@@ -25,7 +29,3 @@ spec:
             name: tasklistapp-frontend-service
             port:
               number: 80
-  tls:
-  - hosts:
-    - tasklistapp.local
-    secretName: tasklistapp-frontend-tls  # Will be managed by cert-manager later
