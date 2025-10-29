@@ -51,7 +51,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            REACT_APP_API_URL=${{ secrets.FRONTEND_API_URL }}
+            FRONTEND_API_URL=${{ secrets.FRONTEND_API_URL }}
 
       - name: Show image info
         run: |
