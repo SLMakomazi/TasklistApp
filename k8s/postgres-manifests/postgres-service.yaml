@@ -4,7 +4,13 @@ metadata:
   name: tasklistapp-postgresql-service
   namespace: tasklistapp
   labels:
-    app: tasklistapp-postgresql
+    app: tasklistapp
+    tier: database
+    app.kubernetes.io/name: postgresql
+    app.kubernetes.io/instance: tasklistapp-postgresql
+    app.kubernetes.io/component: database
+    app.kubernetes.io/part-of: tasklistapp
+    app.kubernetes.io/managed-by: argocd
 spec:
   selector:
     app: tasklistapp-postgresql

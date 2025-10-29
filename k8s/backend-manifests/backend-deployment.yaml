@@ -5,8 +5,9 @@ metadata:
   namespace: tasklistapp
   labels:
     app: tasklistapp
-    app.kubernetes.io/name: tasklistapp
-    app.kubernetes.io/instance: tasklistapp
+    tier: backend
+    app.kubernetes.io/name: tasklistapp-backend
+    app.kubernetes.io/instance: tasklistapp-backend
     app.kubernetes.io/component: backend
     app.kubernetes.io/part-of: tasklistapp
     app.kubernetes.io/managed-by: argocd
@@ -16,6 +17,7 @@ spec:
   selector:
     matchLabels:
       app: tasklistapp
+      tier: backend
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -25,16 +27,20 @@ spec:
     metadata:
       labels:
         app: tasklistapp
-        app.kubernetes.io/name: tasklistapp
-        app.kubernetes.io/instance: tasklistapp
+        tier: backend
+        app.kubernetes.io/name: tasklistapp-backend
+        app.kubernetes.io/instance: tasklistapp-backend
         app.kubernetes.io/version: "1.0.0"
     spec:
       serviceAccountName: tasklistapp-sa
       containers:
       - name: tasklistapp
         image: ghcr.io/slmakomazi/tasklistapp:api-latest
+        imagePullPolicy: IfNotPresent
         ports:
-        - containerPort: 8080
+        - name: http
+          containerPort: 8080
+          protocol: TCP
         resources:
           requests:
             memory: "256Mi"
@@ -42,6 +48,54 @@ spec:
           limits:
             memory: "512Mi"
             cpu: "500m"
+        env:
+        - name: SPRING_PROFILES_ACTIVE
+          value: "kubernetes"
+        - name: SPRING_DATASOURCE_URL
+          value: "jdbc:postgresql://tasklistapp-postgresql-service:5432/tasklist"
+        - name: SPRING_DATASOURCE_USERNAME
+          value: "postgres"
+        - name: SPRING_DATASOURCE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: tasklistapp-secrets
+              key: db-password
+        - name: SERVER_PORT
+          value: "8080"
+        - name: SPRING_LIQUIBASE_ENABLED
+          value: "true"
+        - name: SPRING_LIQUIBASE_CHANGE_LOG
+          value: "classpath:db/changelog/db.changelog-master.xml"
+        - name: SPRING_JPA_HIBERNATE_DDL_AUTO
+          value: "validate"
+        - name: SPRING_JPA_OPEN_IN_VIEW
+          value: "false"
+        - name: SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT
+          value: "org.hibernate.dialect.PostgreSQLDialect"
+        - name: SPRING_JPA_PROPERTIES_HIBERNATE_FORMAT_SQL
+          value: "true"
+        - name: SPRING_JPA_SHOW_SQL
+          value: "true"
+        - name: SPRING_SQL_INIT_MODE
+          value: "always"
+        - name: MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE
+          value: "health,info,metrics"
+        - name: MANAGEMENT_ENDPOINT_HEALTH_SHOWDETAILS
+          value: "always"
+        - name: MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED
+          value: "true"
+        - name: MANAGEMENT_HEALTH_LIQUIBASE_ENABLED
+          value: "true"
+        - name: MANAGEMENT_HEALTH_DB_ENABLED
+          value: "true"
+        - name: MANAGEMENT_HEALTH_DISKSPACE_ENABLED
+          value: "true"
+        - name: MANAGEMENT_HEALTH_PING_ENABLED
+          value: "true"
+        - name: MANAGEMENT_HEALTH_READINESSSTATE_ENABLED
+          value: "true"
+        - name: MANAGEMENT_HEALTH_LIVENESSSTATE_ENABLED
+          value: "true"
         envFrom:
         - configMapRef:
             name: tasklistapp-config

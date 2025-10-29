@@ -1,16 +1,23 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: tasklistapp-frontend-service
+  name: frontend
   namespace: tasklistapp
   labels:
-    app: frontend
+    app: tasklistapp
+    tier: frontend
+    app.kubernetes.io/name: tasklistapp-frontend
+    app.kubernetes.io/instance: tasklistapp-frontend
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: tasklistapp
+    app.kubernetes.io/managed-by: argocd
 spec:
-  type: ClusterIP
   ports:
-  - port: 80
-    targetPort: 80
+  - name: http
+    port: 80
     protocol: TCP
-    name: http
+    targetPort: 80
   selector:
-    app: frontend
+    app: tasklistapp
+    tier: frontend
+  type: ClusterIP

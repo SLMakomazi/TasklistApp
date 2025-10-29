@@ -4,9 +4,10 @@ metadata:
   name: frontend
   namespace: tasklistapp
   labels:
-    app: frontend
-    app.kubernetes.io/name: frontend
-    app.kubernetes.io/instance: frontend
+    app: tasklistapp
+    tier: frontend
+    app.kubernetes.io/name: tasklistapp-frontend
+    app.kubernetes.io/instance: tasklistapp-frontend
     app.kubernetes.io/component: frontend
     app.kubernetes.io/part-of: tasklistapp
     app.kubernetes.io/managed-by: argocd
@@ -15,7 +16,8 @@ spec:
   revisionHistoryLimit: 3
   selector:
     matchLabels:
-      app: frontend
+      app: tasklistapp
+      tier: frontend
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -24,9 +26,10 @@ spec:
   template:
     metadata:
       labels:
-        app: frontend
-        app.kubernetes.io/name: frontend
-        app.kubernetes.io/instance: frontend
+        app: tasklistapp
+        tier: frontend
+        app.kubernetes.io/name: tasklistapp-frontend
+        app.kubernetes.io/instance: tasklistapp-frontend
         app.kubernetes.io/version: "1.0.0"
     spec:
       serviceAccountName: tasklistapp-sa
@@ -38,9 +41,11 @@ spec:
         - name: http
           containerPort: 80
           protocol: TCP
-        envFrom:
-        - configMapRef:
-            name: frontend-config
+        env:
+        - name: NGINX_ENVSUBST_OUTPUT_DIR
+          value: "/etc/nginx"
+        - name: BACKEND_SERVICE
+          value: "http://backend"
         resources:
           requests:
             cpu: "100m"
@@ -48,26 +53,6 @@ spec:
           limits:
             cpu: "500m"
             memory: "512Mi"
-        livenessProbe:
-          httpGet:
-            path: /
-            port: http
-            scheme: HTTP
-          initialDelaySeconds: 30
-          periodSeconds: 10
-          timeoutSeconds: 5
-          failureThreshold: 3
-          successThreshold: 1
-        readinessProbe:
-          httpGet:
-            path: /
-            port: http
-            scheme: HTTP
-          initialDelaySeconds: 5
-          periodSeconds: 5
-          timeoutSeconds: 3
-          failureThreshold: 3
-          successThreshold: 1
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
@@ -76,8 +61,55 @@ spec:
           capabilities:
             drop:
             - ALL
+        volumeMounts:
+        - name: nginx-config
+          mountPath: /etc/nginx/nginx.conf
+          subPath: nginx.conf
+          readOnly: true
+        - name: nginx-config
+          mountPath: /etc/nginx/conf.d/default.conf
+          subPath: default.conf
+          readOnly: true
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+      volumes:
+      - name: nginx-config
+        configMap:
+          name: nginx-config
+          items:
+          - key: nginx.conf
+            path: nginx.conf
+          - key: default.conf
+            path: default.conf
       securityContext:
-        fsGroup: 2000
+        fsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroupChangePolicy: "OnRootMismatch"
       restartPolicy: Always
       terminationGracePeriodSeconds: 30
       dnsPolicy: ClusterFirst
