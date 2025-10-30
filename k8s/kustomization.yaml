@@ -12,7 +12,6 @@ resources:
   - postgres-manifests/postgresdb-service.yaml
   - postgres-manifests/postgresdb-deployment.yaml
   - postgres-manifests/postgresdb-pvc.yaml
-  - postgres-manifests/tasklistapp-secrets.yaml
   
   # Frontend resources
   - frontend-manifests/frontend-configmap.yaml
@@ -30,6 +29,7 @@ resources:
   - ingress/frontend-ingress.yaml
   - ingress/backend-ingress.yaml
   - microk8s-hostpath-immediate.yaml
+  - tasklistapp-secrets.yaml
 
 # Common labels for all resources
 commonLabels:

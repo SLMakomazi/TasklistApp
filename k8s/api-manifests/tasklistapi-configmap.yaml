@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: tasklistapp-config
+  name: tasklistapi-config
   namespace: tasklistapp
 data:
   # Application configuration for Kubernetes environment
@@ -11,9 +11,9 @@ data:
   JPA_SHOW_SQL: "false"
   SPRING_PROFILES_ACTIVE: "kubernetes"
   # Database configuration
-  SPRING_DATASOURCE_URL: "jdbc:postgresql://tasklistapp-postgresql-service:5432/tasklistdb"
-  SPRING_DATASOURCE_USERNAME: "postgres"
-  SPRING_DATASOURCE_PASSWORD: "admin"
+  SPRING_DATASOURCE_URL: "jdbc:postgresql://tasklistapp-postgresql-service:5432/${DB_NAME}"
+  SPRING_DATASOURCE_USERNAME: "${DB_USERNAME}"
+  SPRING_DATASOURCE_PASSWORD: "${DB_PASSWORD}"
   # JPA/Hibernate configuration - allows table creation
   SPRING_JPA_HIBERNATE_DDL_AUTO: "update"
   SPRING_JPA_SHOW_SQL: "true"

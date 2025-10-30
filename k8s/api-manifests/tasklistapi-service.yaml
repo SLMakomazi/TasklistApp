@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: tasklistapi-service
+  namespace: tasklistapp
+  labels:
+    app: tasklistapi
+    tier: backend
+    app.kubernetes.io/name: tasklistapi
+    app.kubernetes.io/instance: tasklistapi
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/part-of: tasklistapp
+    app.kubernetes.io/managed-by: argocd
+spec:
+  type: ClusterIP
+  selector:
+    app: tasklistapi
+    tier: backend
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+      protocol: TCP
