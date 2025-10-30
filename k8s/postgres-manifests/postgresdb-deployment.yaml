@@ -27,8 +27,9 @@ spec:
     spec:
       containers:
       - name: postgresql
-        image: postgres:15-alpine
-        imagePullPolicy: IfNotPresent
+        # Use your GHCR custom image here
+        image: ghcr.io/slmakomazi/tasklistapp:db-latest
+        imagePullPolicy: Always
         ports:
         - name: postgresql
           containerPort: 5432
@@ -54,8 +55,6 @@ spec:
         - name: POSTGRES_INITDB_ARGS
           value: "--data-checksums"
         volumeMounts:
-        - name: init-script
-          mountPath: /docker-entrypoint-initdb.d/
         - name: postgres-storage
           mountPath: /var/lib/postgresql/data
         livenessProbe:
@@ -88,12 +87,10 @@ spec:
             cpu: 200m
             memory: 512Mi
       volumes:
-      - name: init-script
-        configMap:
-          name: postgresdb-config
-          items:
-          - key: init.sql
-            path: init.sql
       - name: postgres-storage
         persistentVolumeClaim:
           claimName: postgresdb-pvc
+
+      # THIS tells Kubernetes how to pull your GHCR image
+      imagePullSecrets:
+        - name: ghcr-secret
