@@ -15,15 +15,14 @@ spec:
     targetRevision: HEAD
     path: k8s
     kustomize:
-      # Enable kustomize
       version: v4.5.5
-      # Add common labels and annotations
-      commonAnnotations:
-        argocd.argoproj.io/sync-options: PruneLast=true
       commonLabels:
         app.kubernetes.io/name: tasklistapp
         app.kubernetes.io/instance: tasklistapp
+        app.kubernetes.io/part-of: tasklistapp
         app.kubernetes.io/managed-by: argocd
+      commonAnnotations:
+        argocd.argoproj.io/sync-options: PruneLast=true
   destination:
     server: https://kubernetes.default.svc
     namespace: tasklistapp
@@ -42,11 +41,3 @@ spec:
         duration: 5s
         factor: 2
         maxDuration: 3m
-  # Add sync waves for proper ordering
-  # 0: Namespace, CRDs, ServiceAccounts, RBAC
-  # 1: ConfigMaps, Secrets
-  # 2: Services
-  # 3: Deployments, StatefulSets, DaemonSets
-  # 4: Ingress, Routes
-  # 5: HPA, PDB
-  # 6: Jobs, CronJobs

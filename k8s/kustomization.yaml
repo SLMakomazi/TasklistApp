@@ -1,33 +1,44 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
+# Base resources
 resources:
   - namespace.yaml
   - serviceaccount.yaml
   - ghcr-secret.yaml
-  - postgres-manifests/postgres-configmap.yaml
-  - postgres-manifests/postgres-service.yaml
-  - postgres-manifests/postgres-deployment.yaml
-  - postgres-manifests/postgres-pvc.yaml
+  
+  # Postgres resources
+  - postgres-manifests/postgresdb-configmap.yaml
+  - postgres-manifests/postgresdb-service.yaml
+  - postgres-manifests/postgresdb-deployment.yaml
+  - postgres-manifests/postgresdb-pvc.yaml
+  - postgres-manifests/tasklistapp-secrets.yaml
+  
+  # Frontend resources
   - frontend-manifests/frontend-configmap.yaml
   - frontend-manifests/frontend-service.yaml
   - frontend-manifests/frontend-deployment.yaml
+  - frontend-manifests/nginx-configmap.yaml
+  
+  # Backend resources
   - backend-manifests/backend-configmap.yaml
   - backend-manifests/backend-secrets.yaml
   - backend-manifests/backend-service.yaml
   - backend-manifests/backend-deployment.yaml
+  
+  # Ingress resources
   - ingress/frontend-ingress.yaml
   - ingress/backend-ingress.yaml
+  - microk8s-hostpath-immediate.yaml
 
 # Common labels for all resources
 commonLabels:
   app.kubernetes.io/part-of: tasklistapp
   app.kubernetes.io/managed-by: argocd
 
-# Common annotations for all resources
+# Common annotations
 commonAnnotations:
   argocd.argoproj.io/sync-options: PruneLast=true
-  argocd.argoproj.io/sync-wave: "0"
 
 # Image overrides
 images:
@@ -38,7 +49,7 @@ images:
     newName: ghcr.io/slmakomazi/tasklistapp
     newTag: api-latest
 
-# Prevent Kustomize from modifying selectors
+# Deployment patches
 patches:
   - target:
       kind: Deployment
@@ -55,6 +66,10 @@ patches:
           app.kubernetes.io/name: frontend
           app.kubernetes.io/instance: frontend
           app.kubernetes.io/version: "1.0.0"
+      - op: add
+        path: /spec/template/spec/imagePullSecrets
+        value:
+          - name: ghcr-secret
   - target:
       kind: Deployment
       name: tasklistapp-deployment
@@ -70,3 +85,7 @@ patches:
           app.kubernetes.io/name: tasklistapp
           app.kubernetes.io/instance: tasklistapp
           app.kubernetes.io/version: "1.0.0"
+      - op: add
+        path: /spec/template/spec/imagePullSecrets
+        value:
+          - name: ghcr-secret
