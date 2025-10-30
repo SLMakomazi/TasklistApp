@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: tasklistapp-postgres-pvc
+  name: postgresdb-pvc
   namespace: tasklistapp
 spec:
   accessModes:

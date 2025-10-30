@@ -1,0 +1,55 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgresdb-config
+  namespace: tasklistapp
+  labels:
+    app: postgresdb
+    tier: database
+    app.kubernetes.io/name: postgresql
+    app.kubernetes.io/instance: postgresdb
+    app.kubernetes.io/component: database
+    app.kubernetes.io/part-of: tasklistapp
+    app.kubernetes.io/managed-by: argocd
+data:
+  POSTGRES_DB: "postgresdb"
+  POSTGRES_USER: "postgres"
+  init.sql: |
+    -- Create tasks table
+    CREATE TABLE IF NOT EXISTS tasks (
+        id BIGSERIAL PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        description TEXT,
+        due_date DATE,
+        completed BOOLEAN DEFAULT false,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    );
+
+    -- Create indexes for better query performance
+    CREATE INDEX IF NOT EXISTS idx_tasks_completed ON tasks(completed);
+    CREATE INDEX IF NOT EXISTS idx_tasks_due_date ON tasks(due_date);
+
+    -- Create a trigger to update the updated_at timestamp
+    CREATE OR REPLACE FUNCTION update_updated_at_column()
+    RETURNS TRIGGER AS $$
+    BEGIN
+        NEW.updated_at = CURRENT_TIMESTAMP;
+        RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql;
+
+    -- Apply the trigger to the tasks table
+    DROP TRIGGER IF EXISTS update_tasks_updated_at ON tasks;
+    CREATE TRIGGER update_tasks_updated_at
+    BEFORE UPDATE ON tasks
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+    -- Reset sequence to start from 1
+    SELECT setval('tasks_id_seq', 1, false);
+
+    -- Grant permissions
+    GRANT ALL PRIVILEGES ON DATABASE tasklistdb TO postgres;
+    GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO postgres;
+    GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO postgres;

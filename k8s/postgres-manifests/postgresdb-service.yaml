@@ -1,19 +1,19 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: tasklistapp-postgresql-service
+  name: postgresdb-service
   namespace: tasklistapp
   labels:
-    app: tasklistapp
+    app: postgresdb
     tier: database
     app.kubernetes.io/name: postgresql
-    app.kubernetes.io/instance: tasklistapp-postgresql
+    app.kubernetes.io/instance: postgresdb
     app.kubernetes.io/component: database
     app.kubernetes.io/part-of: tasklistapp
     app.kubernetes.io/managed-by: argocd
 spec:
   selector:
-    app: tasklistapp-postgresql
+    app: postgresdb
   ports:
   - name: postgresql
     port: 5432
