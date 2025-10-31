@@ -3,14 +3,17 @@ kind: ConfigMap
 metadata:
   name: frontend-config
   namespace: tasklistapp
+  labels:
+    app: tasklistapp
+    tier: frontend
+    app.kubernetes.io/name: tasklistapp-frontend
+    app.kubernetes.io/instance: tasklistapp-frontend
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: tasklistapp
+    app.kubernetes.io/managed-by: argocd
 data:
-  # API URL - using HTTPS for secure communication
-  REACT_APP_API_URL: https://api.tasklistapp.local/api
-  # Environment configuration
-  NODE_ENV: development
-  # Public URL for assets and base paths
+  # The internal API endpoint (ClusterIP access via backend service)
+  REACT_APP_API_URL: http://tasklistapi-service.tasklistapp.svc.cluster.local/api
+  NODE_ENV: production
   PUBLIC_URL: /
-  # Enable detailed logging in development
-  REACT_APP_DEBUG: "true"
-  # Feature flags can be added here
-  # REACT_APP_FEATURE_X: "enabled"
+  REACT_APP_DEBUG: "false"
