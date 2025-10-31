@@ -47,7 +47,7 @@ spec:
         - configMapRef:
             name: frontend-config
         env:
-        - name: BACKEND_SERVICE
+        - name: tasklistapi-service
           value: "http://tasklistapi-service:8080"
         resources:
           requests:
