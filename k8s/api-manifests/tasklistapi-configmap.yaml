@@ -11,7 +11,7 @@ data:
   JPA_SHOW_SQL: "false"
   SPRING_PROFILES_ACTIVE: "kubernetes"
   # Database configuration
-  SPRING_DATASOURCE_URL: "jdbc:postgresql://postgresdb-service:5432/postgresdb"
+  SPRING_DATASOURCE_URL: "jdbc:postgresql://${DB_HOST}:5432/${DB_NAME}"
   SPRING_DATASOURCE_USERNAME: "${DB_USERNAME}"
   SPRING_DATASOURCE_PASSWORD: "${DB_PASSWORD}"
   # JPA/Hibernate configuration - allows table creation
