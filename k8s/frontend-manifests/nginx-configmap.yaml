@@ -41,7 +41,7 @@ data:
 
   default.conf: |
     server {
-        listen       80;
+        listen       8080;
         server_name  localhost;
         root   /usr/share/nginx/html;
         index  index.html index.htm;

@@ -41,7 +41,7 @@ spec:
         imagePullPolicy: IfNotPresent
         ports:
         - name: http
-          containerPort: 80
+          containerPort: 8080
           protocol: TCP
         envFrom:
         - configMapRef:
@@ -75,7 +75,7 @@ spec:
         livenessProbe:
           httpGet:
             path: /healthz
-            port: 80
+            port: 8080
           initialDelaySeconds: 40
           periodSeconds: 10
           timeoutSeconds: 5
@@ -83,7 +83,7 @@ spec:
         readinessProbe:
           httpGet:
             path: /healthz
-            port: 80
+            port: 8080
           initialDelaySeconds: 10
           periodSeconds: 10
           timeoutSeconds: 3
