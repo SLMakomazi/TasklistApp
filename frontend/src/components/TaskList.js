@@ -164,6 +164,10 @@ const TaskList = () => {
                       type="text"
                       value={editText}
                       onChange={(e) => setEditText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') saveTask(task.id);
+                        if (e.key === 'Escape') cancelEditing();
+                      }}
                       className="edit-input"
                       autoFocus
                     />
@@ -188,7 +192,10 @@ const TaskList = () => {
                   </>
                 ) : (
                   <>
-                    <span className="task-text" onDoubleClick={() => startEditing(task)}>
+                    <span 
+                      className="task-text" 
+                      onDoubleClick={() => startEditing(task)}
+                    >
                       {task.text}
                     </span>
                     <div className="task-actions">
@@ -212,6 +219,7 @@ const TaskList = () => {
                       </button>
                     </div>
                   </>
+                )}
               </li>
             ))
           )}
