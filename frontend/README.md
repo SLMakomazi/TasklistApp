@@ -1,53 +1,119 @@
-# Getting Started with Create React App
+# TasklistApp - Frontend
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+This is the frontend application for TasklistApp, built with React and designed to work with the Spring Boot backend. It provides a responsive user interface for managing tasks.
 
-## Available Scripts
+## 🚀 Features
 
-In the project directory, you can run:
+- **Modern UI** - Built with React and Material-UI
+- **Responsive Design** - Works on desktop and mobile devices
+- **Real-time Updates** - Automatic refresh of task lists
+- **Form Validation** - Client-side validation for better UX
+- **Environment Configuration** - Easy configuration for different environments
 
-### `npm start`
+## 🛠️ Prerequisites
 
-Runs the app in the development mode.\
+- Node.js 16+ and npm 8+
+- TasklistApp Backend running (default: http://localhost:8080)
+- Git
+
+## 🚀 Getting Started
+
+### 1. Clone the Repository
+```bash
+git clone https://github.com/yourusername/TasklistApp.git
+cd TasklistApp/frontend
+```
+
+### 2. Install Dependencies
+```bash
+npm install
+```
+
+### 3. Configure Environment
+Create a `.env` file in the frontend directory:
+```env
+REACT_APP_API_URL=http://localhost:8080/api
+PORT=3000
+```
+
+### 4. Start Development Server
+```bash
+npm start
+```
 Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## 🏗️ Project Structure
 
-### `npm test`
+```
+frontend/
+├── public/               # Static files
+├── src/
+│   ├── components/      # Reusable UI components
+│   ├── pages/           # Page components
+│   ├── services/        # API service layer
+│   ├── styles/          # Global styles
+│   ├── utils/           # Utility functions
+│   ├── App.js           # Main App component
+│   └── index.js         # Application entry point
+├── .env                 # Environment variables
+├── package.json         # Dependencies and scripts
+└── README.md            # This file
+```
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+## 📦 Available Scripts
 
-### `npm run build`
+- `npm start` - Start development server
+- `npm test` - Run tests
+- `npm run build` - Build for production
+- `npm run lint` - Run ESLint
+- `npm run format` - Format code with Prettier
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## 🔧 Configuration
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+### Environment Variables
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `REACT_APP_API_URL` | Backend API URL | `http://localhost:8080/api` |
+| `PORT` | Development server port | `3000` |
 
-### `npm run eject`
+## 🧪 Testing
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+Run the test suite:
+```bash
+npm test
+```
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+Run tests in watch mode:
+```bash
+npm test -- --watch
+```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+## 🚀 Deployment
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+### Production Build
+```bash
+npm run build
+```
+This creates an optimized production build in the `build` folder.
 
-## Learn More
+### Docker Build
+```bash
+docker build -t tasklistapp-frontend .
+docker run -p 3000:80 tasklistapp-frontend
+```
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+## 🤝 Contributing
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
 
-### Code Splitting
+## 📄 License
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ### Analyzing the Bundle Size
 

@@ -1,5 +1,143 @@
 # 🚀 TasklistApp - Task Management API
 
+**A modern, full-stack task management application with Kubernetes, ArgoCD, and CI/CD**
+
+## 🚀 Quick Start - New Machine Setup
+
+### Prerequisites
+- **WSL2** (Windows Subsystem for Linux 2)
+- **Docker Desktop** with Kubernetes enabled
+- **kubectl** (Kubernetes CLI)
+- **Git**
+- **Java 17+** (for local development)
+- **Maven** (for local development)
+- **Node.js** (for frontend development)
+
+### 1. Clone the Repository
+```bash
+git clone https://github.com/yourusername/TasklistApp.git
+cd TasklistApp
+```
+
+### 2. Set Up Kubernetes Cluster with MicroK8s
+```bash
+# Install MicroK8s on WSL2
+sudo snap install microk8s --classic
+
+# Add current user to the microk8s group
+sudo usermod -a -G microk8s $USER
+newgrp microk8s
+
+# Start MicroK8s
+microk8s start
+
+# Enable required addons
+microk8s enable dns ingress storage registry metrics-server
+
+# Create alias for kubectl
+echo "alias kubectl='microk8s kubectl'" >> ~/.bashrc
+source ~/.bashrc
+```
+
+### 3. Install ArgoCD
+```bash
+# Create namespace
+kubectl create namespace argocd
+
+# Install ArgoCD
+kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+
+# Wait for pods to be ready
+kubectl wait --for=condition=available --timeout=300s deployment/argocd-server -n argocd
+
+# Get initial admin password
+kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d && echo
+
+# Port-forward ArgoCD UI
+kubectl port-forward svc/argocd-server -n argocd 8080:80 &
+```
+Access ArgoCD UI at: http://localhost:8080
+- Username: admin
+- Password: (from the command above)
+
+### 4. Deploy the Application
+```bash
+# Create namespace for the application
+kubectl create namespace tasklistapp
+
+# Apply ArgoCD application
+kubectl apply -f k8s/argocd-application.yaml
+```
+
+### 5. Access the Application
+```bash
+# Get the application URL
+kubectl get ingress -n tasklistapp
+
+# Or use port-forwarding
+kubectl port-forward -n tasklistapp svc/tasklistapp-service 8081:80
+```
+Access the application at: http://localhost:8081
+
+## 🔐 Environment Variables
+
+Create a `.env` file in the project root with the following variables:
+```env
+# Database
+DB_URL=jdbc:postgresql://postgres:5432/tasklistdb
+DB_USERNAME=postgres
+DB_PASSWORD=your_secure_password
+
+# JWT Secret
+JWT_SECRET=your_jwt_secret_key
+
+# Frontend
+REACT_APP_API_URL=http://localhost:8080/api
+```
+
+## 🏗️ Development Setup
+
+### Backend (Spring Boot)
+```bash
+cd app
+mvn clean install
+mvn spring-boot:run
+```
+
+### Frontend (React)
+```bash
+cd frontend
+npm install
+npm start
+```
+
+## 🛠️ Common Issues & Solutions
+
+### Port Conflicts
+If you encounter port conflicts, update the following files:
+- `k8s/ingress/*.yaml` - Update host and port configurations
+- `app/src/main/resources/application.properties` - Update server.port
+- `frontend/package.json` - Update proxy settings
+
+### Database Connection Issues
+1. Verify PostgreSQL is running
+2. Check connection strings in:
+   - `k8s/api-manifests/tasklistapi-configmap.yaml`
+   - `k8s/api-manifests/tasklistapi-secrets.yaml`
+
+## 📚 Documentation
+- [API Documentation](http://localhost:8080/swagger-ui.html)
+- [Database Schema](database/README.md)
+- [Kubernetes Setup](k8s/README.md)
+- [Frontend Development](frontend/README.md)
+
+## 🤝 Contributing
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a new Pull Request
+
 **Cluster: MicroK8s (WSL2 VM) — ArgoCD: Installed & Running — App: TasklistApp (Ready for Deployment)**
 
 A modern, full-stack task management application built with **Spring Boot 3.3.4**, **PostgreSQL 16**, and **Docker**. Features multiple deployment strategies including Docker containers, VM-based systemd services, and **Kubernetes with ArgoCD GitOps** - all with automated CI/CD pipelines.

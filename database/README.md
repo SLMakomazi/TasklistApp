@@ -2,33 +2,186 @@
 
 This directory contains the PostgreSQL database configuration for the TasklistApp. The database runs in a Docker container and provides persistent storage for the Spring Boot API application.
 
-## Table of Contents
+## 📋 Table of Contents
 
-- [Database Overview](#database-overview)
-- [Setup Instructions](#setup-instructions)
-- [Docker Container Management](#docker-container-management)
-- [Environment Variables](#environment-variables)
-- [Database Management](#database-management)
-- [Troubleshooting](#troubleshooting)
+- [Database Overview](#-database-overview)
+- [🚀 Quick Start](#-quick-start)
+- [🔧 Configuration](#-configuration)
+- [🐳 Docker Management](#-docker-management)
+- [🔒 Security](#-security)
+- [📊 Database Management](#-database-management)
+- [🔍 Troubleshooting](#-troubleshooting)
+- [☸️ Kubernetes Deployment](#️-kubernetes-deployment)
 
-## Database Overview
+## 🗃️ Database Overview
 
 ### Database Specifications
 - **Database**: PostgreSQL 16
 - **Container**: `tasklist-postgres`
 - **Database Name**: `tasklistdb`
 - **User**: `postgres`
-- **Password**: `admin`
+- **Password**: `admin` (Change in production!)
 - **Port**: `5432`
+- **Volume**: `tasklistapp_postgres_data`
 
-### Key Features
-- **Persistent Storage** - Docker volumes (`tasklistapp_postgres_data`)
-- **Environment Configuration** - No hardcoded values
-- **Health Checks** - Automatic readiness verification
-- **Network Isolation** - Secure inter-container communication
-- **Multi-Instance Ready** - Supports local + VM + Kubernetes architecture
-- **Production Security** - Configurable credentials
-- **Kubernetes Ready** - StatefulSet deployment with persistent volumes
+### ✨ Key Features
+- **Persistent Storage** - Data survives container restarts
+- **Environment Configuration** - No hardcoded credentials
+- **Health Checks** - Automatic readiness/liveness verification
+- **Multi-Environment Ready** - Works locally and in production
+- **Backup/Restore** - Easy backup procedures
+- **Kubernetes Ready** - Includes StatefulSet configuration
+
+## 🚀 Quick Start
+
+### Prerequisites
+- Docker and Docker Compose installed
+- At least 2GB of free disk space
+- Port 5432 available
+
+### Start Database
+```bash
+# From project root
+docker-compose up -d tasklist-postgres
+
+# Verify container is running
+docker ps | grep postgres
+```
+
+### Connect to Database
+```bash
+# Connect using psql
+docker exec -it tasklist-postgres psql -U postgres -d tasklistdb
+
+# Or connect from host
+PGPASSWORD=admin psql -h localhost -U postgres -d tasklistdb
+```
+
+## 🔧 Configuration
+
+### Environment Variables
+Create a `.env` file in the project root:
+```env
+# Database
+POSTGRES_DB=tasklistdb
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=your_secure_password
+
+# Ports
+POSTGRES_PORT=5432
+
+# Data persistence
+PGDATA=/var/lib/postgresql/data/pgdata
+```
+
+### Kubernetes Configuration
+For Kubernetes deployment, update the following files:
+- `k8s/postgres-secrets.yaml`
+- `k8s/postgres-configmap.yaml`
+- `k8s/postgres-pvc.yaml`
+
+## 🐳 Docker Management
+
+### Start/Stop Containers
+```bash
+# Start
+docker-compose up -d tasklist-postgres
+
+# Stop
+docker-compose stop tasklist-postgres
+
+# Remove containers and volumes
+docker-compose down -v
+```
+
+### View Logs
+```bash
+docker logs -f tasklist-postgres
+```
+
+## 🔒 Security
+
+### Change Default Credentials
+1. Update `.env` file with new credentials
+2. Update Kubernetes secrets if applicable
+3. Restart the database container
+
+### Enable SSL
+Add to `docker-compose.yml`:
+```yaml
+environment:
+  POSTGRES_INITDB_ARGS: '--data-checksums --encoding=UTF8'
+  POSTGRES_HOST_AUTH_METHOD: 'scram-sha-256'
+```
+
+## 📊 Database Management
+
+### Create Backup
+```bash
+docker exec -t tasklist-postgres pg_dumpall -c -U postgres > dump_$(date +%Y-%m-%d).sql
+```
+
+### Restore from Backup
+```bash
+cat your_dump.sql | docker exec -i tasklist-postgres psql -U postgres
+```
+
+### Run SQL Script
+```bash
+cat script.sql | docker exec -i tasklist-postgres psql -U postgres -d tasklistdb
+```
+
+## 🔍 Troubleshooting
+
+### Common Issues
+
+**Connection Refused**
+- Verify PostgreSQL is running: `docker ps | grep postgres`
+- Check logs: `docker logs tasklist-postgres`
+- Ensure port 5432 is available
+
+**Permission Issues**
+- Check volume permissions
+- Ensure proper file ownership
+- Verify SELinux/AppArmor settings if applicable
+
+### View Logs
+```bash
+docker logs -f tasklist-postgres
+```
+
+## ☸️ Kubernetes Deployment
+
+### Prerequisites
+- Kubernetes cluster (Minikube, EKS, GKE, etc.)
+- kubectl configured
+- Helm (optional)
+
+### Deploy
+```bash
+# Create namespace
+kubectl create namespace tasklistapp
+
+# Apply configurations
+kubectl apply -f k8s/postgres-secrets.yaml
+kubectl apply -f k8s/postgres-configmap.yaml
+kubectl apply -f k8s/postgres-pvc.yaml
+kubectl apply -f k8s/postgres-deployment.yaml
+kubectl apply -f k8s/postgres-service.yaml
+```
+
+### Verify
+```bash
+# Check pods
+kubectl get pods -n tasklistapp
+
+# Check logs
+kubectl logs -l app=postgres -n tasklistapp
+
+# Connect to database
+kubectl run -it --rm --image=postgres:16-alpine --restart=Never --
+  psql -h postgres -U postgres -d tasklistdb
+```
 
 ## Setup Instructions
 
