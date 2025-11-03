@@ -25,7 +25,7 @@ spec:
     - host: api.tasklistapi.local
       http:
         paths:
-          - path: /(.*)
+          - path: /api
             pathType: Prefix
             backend:
               service:
