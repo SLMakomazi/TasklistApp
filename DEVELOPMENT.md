@@ -153,6 +153,22 @@ A comprehensive guide to setting up the complete TasklistApp development environ
 
 ## 🛠️ Local Development Setup
 
+### Hosts File Configuration
+
+For local development, add these entries to your `/etc/hosts` file (Windows: `C:\Windows\System32\drivers\etc\hosts`):
+
+```
+127.0.0.1    tasklistapp.local
+127.0.0.1    api.tasklistapp.local
+127.0.0.1    argocd.tasklistapp.local
+```
+
+On Windows, you'll need to edit the hosts file as Administrator. On WSL/Ubuntu, use:
+
+```bash
+sudo nano /etc/hosts
+```
+
 ### Backend Development
 
 1. **Prerequisites**
