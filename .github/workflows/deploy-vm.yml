@@ -5,11 +5,6 @@ on:
     workflows: ["Backend CI - Build & Push Image"]
     types: [completed]
   workflow_dispatch:
-    inputs:
-      reason:
-        description: 'Reason for deployment'
-        required: false
-        default: 'Manual trigger'
 
 env:
   DEPLOY_USER: siseko
@@ -21,11 +16,6 @@ jobs:
   deploy:
     name: Deploy to WSL VM
     runs-on: ubuntu-latest
-    if: |
-      github.event_name == 'workflow_dispatch' || 
-      (github.event.workflow_run != null && 
-       github.event.workflow_run.conclusion == 'success' &&
-       contains(github.event.workflow_run.workflow_id, 'ci-backend-build.yml'))
 
     steps:
       - name: Checkout repository
