@@ -1,0 +1,52 @@
+name: Deploy to VM with Ansible
+
+on:
+  workflow_run:
+    workflows: ["Backend CI - Build & Push Image"]
+    types:
+      - completed
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Reason for manual deployment'
+        required: false
+        default: 'Manual trigger'
+
+jobs:
+  deploy:
+    name: Deploy to VM
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Install Ansible
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ansible
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh/
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519_wsl
+          chmod 600 ~/.ssh/id_ed25519_wsl
+          echo "${{ secrets.SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+
+      - name: Verify Docker images exist in GHCR
+        run: |
+          # Check if backend image exists
+          echo "Verifying backend image exists in GHCR..."
+          docker pull ghcr.io/slmakomazi/tasklistapp-backend:latest
+          
+          # Check if frontend image exists
+          echo "Verifying frontend image exists in GHCR..."
+          docker pull ghcr.io/slmakomazi/tasklistapp-frontend:latest
+
+      - name: Run Ansible playbook
+        working-directory: ./ansible
+        run: ansible-playbook -i inventory.ini deploy_vm.yml
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: false

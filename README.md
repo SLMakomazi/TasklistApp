@@ -95,6 +95,37 @@ JWT_SECRET=your_jwt_secret_key
 REACT_APP_API_URL=http://localhost:8080/api
 ```
 
+## 🤖 Automated VM Deployment (Ansible Integration)
+
+This project includes Ansible playbooks for automated deployment to a local VM, providing a consistent and repeatable deployment process.
+
+### Prerequisites
+- SSH access to target VM on port 2222
+- Docker installed on the target VM
+- SSH key-based authentication configured
+
+### Key Components
+- `ansible/inventory.ini`: Defines the target VM connection details
+- `ansible/deploy_vm.yml`: Playbook for deploying the application
+- `ansible/ansible.cfg`: Ansible configuration
+- `ansible/README.md`: Detailed setup and usage instructions
+
+### How It Works
+1. The playbook connects to the target VM via SSH on port 2222
+2. Pulls the latest Docker images from GitHub Container Registry (GHCR)
+3. Deploys both frontend and backend containers with proper port mappings
+4. Configures containers with restart policies for resilience
+
+### GitHub Actions Integration
+The deployment is automated through GitHub Actions, which triggers on pushes to the main branch. The workflow:
+1. Checks out the repository
+2. Installs Ansible
+3. Executes the deployment playbook
+
+For detailed setup instructions, see the [Ansible README](./ansible/README.md).
+
+---
+
 ## 🏗️ Development Setup
 
 ### Backend (Spring Boot)

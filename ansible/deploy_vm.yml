@@ -1,0 +1,64 @@
+---
+- name: Deploy TasklistApp containers to WSL VM
+  hosts: local_vm
+  become: yes
+  vars_files:
+    - group_vars/all/vault.yml
+  tasks:
+    # Pull all required images
+    - name: Pull PostgreSQL database image
+      community.docker.docker_image:
+        name: ghcr.io/slmakomazi/tasklistapp:db-latest
+        source: pull
+
+    - name: Pull backend API image
+      community.docker.docker_image:
+        name: ghcr.io/slmakomazi/tasklistapp:api-latest
+        source: pull
+
+    - name: Pull frontend image
+      community.docker.docker_image:
+        name: ghcr.io/slmakomazi/tasklistapp-frontend:latest
+        source: pull
+
+    # Start database container first
+    - name: Run PostgreSQL database container
+      community.docker.docker_container:
+        name: tasklist-db
+        image: ghcr.io/slmakomazi/tasklistapp:db-latest
+        state: started
+        restart_policy: always
+        env:
+          POSTGRES_PASSWORD: "{{ db_root_password }}"
+          POSTGRES_DB: "{{ db_name }}"
+          POSTGRES_USER: "{{ db_user }}"
+          POSTGRES_PASSWORD: "{{ db_password }}"
+        ports:
+          - "5432:5432"
+        volumes:
+          - postgres_data:/var/lib/postgresql/data
+
+    # Then start the backend API
+    - name: Run backend API container
+      community.docker.docker_container:
+        name: tasklist-backend
+        image: ghcr.io/slmakomazi/tasklistapp:api-latest
+        state: started
+        restart_policy: always
+        env:
+          SPRING_DATASOURCE_URL: "jdbc:postgresql://tasklist-db:5432/{{ db_name }}"
+          SPRING_DATASOURCE_USERNAME: "{{ db_user }}"
+          SPRING_DATASOURCE_PASSWORD: "{{ db_password }}"
+        depends_on:
+          - tasklist-db
+        ports:
+          - "8080:8080"
+
+    - name: Run frontend container
+      community.docker.docker_container:
+        name: tasklist-frontend
+        image: ghcr.io/slmakomazi/tasklistapp-frontend:latest
+        state: started
+        restart_policy: always
+        ports:
+          - "3000:3000"
