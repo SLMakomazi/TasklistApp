@@ -95,7 +95,7 @@ JWT_SECRET=your_jwt_secret_key
 REACT_APP_API_URL=http://localhost:8080/api
 ```
 
-## 🤖 Automated VM Deployment (Ansible Integration)
+## Automated VM Deployment (Ansible Integration)
 
 This project includes Ansible playbooks for automated deployment to a local VM, providing a consistent and repeatable deployment process.
 

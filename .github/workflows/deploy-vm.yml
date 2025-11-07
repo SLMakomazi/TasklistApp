@@ -12,41 +12,63 @@ on:
         required: false
         default: 'Manual trigger'
 
+env:
+  DEPLOY_USER: siseko
+  DEPLOY_HOST: localhost
+  DEPLOY_PORT: 2222
+  TARGET_DIR: /opt/tasklistapp
+
 jobs:
   deploy:
-    name: Deploy to VM
+    name: Deploy to WSL VM
     runs-on: ubuntu-latest
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      (github.event_name == 'workflow_dispatch' || github.event.workflow_run.event.workflow == 'Backend CI - Build & Push Image')
     
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
-      - name: Install Ansible
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          ssh-known-hosts: ${{ secrets.SSH_KNOWN_HOSTS }}
+
+      - name: Add SSH config
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ansible
+          mkdir -p ~/.ssh
+          echo "Host wsl-vm" >> ~/.ssh/config
+          echo "  HostName ${{ env.DEPLOY_HOST }}" >> ~/.ssh/config
+          echo "  Port ${{ env.DEPLOY_PORT }}" >> ~/.ssh/config
+          echo "  User ${{ env.DEPLOY_USER }}" >> ~/.ssh/config
+          echo "  IdentityFile ~/.ssh/id_rsa" >> ~/.ssh/config
+          echo "  StrictHostKeyChecking no" >> ~/.ssh/config
 
-      - name: Configure SSH
+      - name: Test SSH connection
+        run: ssh wsl-vm "echo 'SSH connection successful!"
+
+      - name: Create target directory
         run: |
-          mkdir -p ~/.ssh/
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519_wsl
-          chmod 600 ~/.ssh/id_ed25519_wsl
-          echo "${{ secrets.SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          ssh wsl-vm "sudo mkdir -p ${{ env.TARGET_DIR }}"
+          ssh wsl-vm "sudo chown ${{ env.DEPLOY_USER }}:${{ env.DEPLOY_USER }} ${{ env.TARGET_DIR }}"
 
-      - name: Verify Docker images exist in GHCR
+      - name: Copy files to WSL VM
         run: |
-          # Check if backend image exists
-          echo "Verifying backend image exists in GHCR..."
-          docker pull ghcr.io/slmakomazi/tasklistapp-backend:latest
-          
-          # Check if frontend image exists
-          echo "Verifying frontend image exists in GHCR..."
-          docker pull ghcr.io/slmakomazi/tasklistapp-frontend:latest
+          # Copy built files (adjust paths as needed)
+          scp -r -P ${{ env.DEPLOY_PORT }} \
+            ./build/* \
+            ${{ env.DEPLOY_USER }}@${{ env.DEPLOY_HOST }}:${{ env.TARGET_DIR }}/
 
-      - name: Run Ansible playbook
-        working-directory: ./ansible
-        run: ansible-playbook -i inventory.ini deploy_vm.yml
-        env:
-          ANSIBLE_HOST_KEY_CHECKING: false
+      - name: Restart application
+        run: |
+          # Example: Restart your application service
+          ssh wsl-vm "sudo systemctl restart tasklistapp.service"
+
+      - name: Verify deployment
+        run: |
+          # Add verification steps (e.g., curl health check)
+          echo "Deployment completed successfully!"
