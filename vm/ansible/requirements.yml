@@ -1,8 +1,0 @@
-# Ansible Galaxy roles (if needed)
-# Add roles here as you expand your infrastructure
-#
-# Example:
-# - src: geerlingguy.java
-#   version: "1.9.6"
-# - src: geerlingguy.postgresql
-#   version: "3.4.2"

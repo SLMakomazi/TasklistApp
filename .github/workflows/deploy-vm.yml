@@ -1,14 +1,13 @@
-name: Deploy to VM with Ansible
+name: Deploy to VM
 
 on:
   workflow_run:
     workflows: ["Backend CI - Build & Push Image"]
-    types:
-      - completed
+    types: [completed]
   workflow_dispatch:
     inputs:
       reason:
-        description: 'Reason for manual deployment'
+        description: 'Reason for deployment'
         required: false
         default: 'Manual trigger'
 
@@ -22,15 +21,17 @@ jobs:
   deploy:
     name: Deploy to WSL VM
     runs-on: ubuntu-latest
-    if: >-
-      github.event.workflow_run.conclusion == 'success' &&
-      (github.event_name == 'workflow_dispatch' || github.event.workflow_run.event.workflow == 'Backend CI - Build & Push Image')
-    
+    if: |
+      github.event_name == 'workflow_dispatch' || 
+      (github.event.workflow_run != null && 
+       github.event.workflow_run.conclusion == 'success' &&
+       contains(github.event.workflow_run.workflow_id, 'ci-backend-build.yml'))
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 0
 
       - name: Set up SSH
         uses: webfactory/ssh-agent@v0.9.0
@@ -57,15 +58,29 @@ jobs:
 
       - name: Create target directory
         run: |
-          ssh wsl-vm "sudo mkdir -p ${{ env.TARGET_DIR }}"
-          ssh wsl-vm "sudo chown ${{ env.DEPLOY_USER }}:${{ env.DEPLOY_USER }} ${{ env.TARGET_DIR }}"
+          ssh -p ${{ env.DEPLOY_PORT }} ${{ env.DEPLOY_USER }}@${{ env.DEPLOY_HOST }} "
+            sudo mkdir -p ${{ env.TARGET_DIR }}
+            sudo chown -R ${{ env.DEPLOY_USER }}:${{ env.DEPLOY_USER }} ${{ env.TARGET_DIR }}
+          "
 
-      - name: Copy files to WSL VM
+      - name: Copy docker-compose.yml to VM
         run: |
-          scp -r -P ${{ env.DEPLOY_PORT }} ./build/* ${{ env.DEPLOY_USER }}@${{ env.DEPLOY_HOST }}:${{ env.TARGET_DIR }}/
+          scp -P ${{ env.DEPLOY_PORT }} ansible/docker-compose.yml ${{ env.DEPLOY_USER }}@${{ env.DEPLOY_HOST }}:${{ env.TARGET_DIR }}/
+          scp -P ${{ env.DEPLOY_PORT }} ansible/.env ${{ env.DEPLOY_USER }}@${{ env.DEPLOY_HOST }}:${{ env.TARGET_DIR }}/ 2>/dev/null || echo "No .env file found, using default values"
 
-      - name: Restart application
-        run: ssh wsl-vm "sudo systemctl restart tasklistapp.service"
+      - name: Deploy application stack
+        run: |
+          ssh -p ${{ env.DEPLOY_PORT }} ${{ env.DEPLOY_USER }}@${{ env.DEPLOY_HOST }} "
+            cd ${{ env.TARGET_DIR }}
+            echo '${{ secrets.GITHUB_TOKEN }}' | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            docker-compose pull
+            docker-compose up -d --remove-orphans
+          "
 
       - name: Verify deployment
-        run: echo "Deployment completed successfully!"
+        run: |
+          ssh -p ${{ env.DEPLOY_PORT }} ${{ env.DEPLOY_USER }}@${{ env.DEPLOY_HOST }} "
+            docker ps
+            echo -e '\nContainer logs:'
+            docker-compose logs --tail=10
+          "

@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  frontend:
+    image: ghcr.io/slmakomazi/tasklistapp-frontend:latest
+    container_name: tasklist-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    environment:
+      - NODE_ENV=production
+      - REACT_APP_API_URL=http://api:${API_PORT:-8080}
+    networks:
+      - tasklist-network
+
+  api:
+    image: ghcr.io/slmakomazi/tasklistapp:api-latest
+    container_name: tasklist-api
+    restart: unless-stopped
+    ports:
+      - "${API_PORT:-8080}:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - DB_URL=jdbc:postgresql://db:5432/${POSTGRES_DB:-tasklistdb}
+      - DB_USERNAME=${POSTGRES_USER:-postgres}
+      - DB_PASSWORD=${POSTGRES_PASSWORD}
+      - JPA_DDL_AUTO=${JPA_DDL_AUTO:-update}
+      - JPA_SHOW_SQL=${JPA_SHOW_SQL:-true}
+      - SERVER_PORT=${SERVER_PORT:-8080}
+      - LOG_LEVEL_SPRING=${LOG_LEVEL_SPRING:-INFO}
+      - LOG_LEVEL_TASKLIST=${LOG_LEVEL_TASKLIST:-DEBUG}
+      - LOG_FILE=${LOG_FILE:-/app/logs/tasklist.log}
+    volumes:
+      - logs:/app/logs
+    networks:
+      - tasklist-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  db:
+    image: postgres:13-alpine
+    container_name: tasklist-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB:-tasklistdb}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - tasklist-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-tasklistdb}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+networks:
+  tasklist-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  logs:

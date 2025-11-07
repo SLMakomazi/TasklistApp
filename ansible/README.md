@@ -1,6 +1,66 @@
-# Ansible Deployment for TasklistApp
+# TasklistApp Deployment
 
-This directory contains Ansible playbooks and configuration for deploying the TasklistApp to a WSL VM via SSH with GitHub Actions integration.
+This directory contains the Docker Compose configuration and deployment scripts for the TasklistApp. The application consists of three main services:
+- Frontend (React)
+- Backend API (Node.js)
+- Database (PostgreSQL)
+
+## 🐳 Docker Compose Deployment
+
+### Prerequisites
+- Docker and Docker Compose installed on the target server
+- Ports 3000 (frontend) and 5000 (API) available
+- GitHub Container Registry (GHCR) access configured
+
+### Configuration
+
+1. Copy the example environment file and update the values:
+   ```bash
+   cp .env.example .env
+   nano .env
+   ```
+
+2. Update the following environment variables in `.env`:
+   - `DB_PASSWORD`: A secure password for the database
+   - `JWT_SECRET`: A secure secret for JWT token generation
+   - `API_URL`: The URL where your API will be accessible
+
+### Deployment
+
+1. Pull the latest images and start the services:
+   ```bash
+   docker-compose pull
+   docker-compose up -d
+   ```
+
+2. Verify the services are running:
+   ```bash
+   docker-compose ps
+   ```
+
+3. View logs:
+   ```bash
+   docker-compose logs -f
+   ```
+
+## 🔧 Maintenance
+
+### Updating the Application
+```bash
+docker-compose pull
+docker-compose up -d --force-recreate
+```
+
+### Backing Up the Database
+```bash
+docker-compose exec db pg_dump -U postgres tasklist > backup_$(date +%Y%m%d).sql
+```
+
+### Restoring the Database
+```bash
+cat backup_file.sql | docker-compose exec -T db psql -U postgres tasklist
+```
+---
 
 ## 🔑 SSH Configuration for WSL VM
 
