@@ -36,7 +36,12 @@ jobs:
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-          ssh-known-hosts: ${{ secrets.SSH_KNOWN_HOSTS }}
+
+      - name: Add host to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_KNOWN_HOSTS }}" >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
 
       - name: Add SSH config
         run: |
@@ -45,11 +50,10 @@ jobs:
           echo "  HostName ${{ env.DEPLOY_HOST }}" >> ~/.ssh/config
           echo "  Port ${{ env.DEPLOY_PORT }}" >> ~/.ssh/config
           echo "  User ${{ env.DEPLOY_USER }}" >> ~/.ssh/config
-          echo "  IdentityFile ~/.ssh/id_rsa" >> ~/.ssh/config
           echo "  StrictHostKeyChecking no" >> ~/.ssh/config
 
       - name: Test SSH connection
-        run: ssh wsl-vm "echo 'SSH connection successful!"
+        run: ssh wsl-vm "echo 'SSH connection successful!'"
 
       - name: Create target directory
         run: |
@@ -58,17 +62,10 @@ jobs:
 
       - name: Copy files to WSL VM
         run: |
-          # Copy built files (adjust paths as needed)
-          scp -r -P ${{ env.DEPLOY_PORT }} \
-            ./build/* \
-            ${{ env.DEPLOY_USER }}@${{ env.DEPLOY_HOST }}:${{ env.TARGET_DIR }}/
+          scp -r -P ${{ env.DEPLOY_PORT }} ./build/* ${{ env.DEPLOY_USER }}@${{ env.DEPLOY_HOST }}:${{ env.TARGET_DIR }}/
 
       - name: Restart application
-        run: |
-          # Example: Restart your application service
-          ssh wsl-vm "sudo systemctl restart tasklistapp.service"
+        run: ssh wsl-vm "sudo systemctl restart tasklistapp.service"
 
       - name: Verify deployment
-        run: |
-          # Add verification steps (e.g., curl health check)
-          echo "Deployment completed successfully!"
+        run: echo "Deployment completed successfully!"
