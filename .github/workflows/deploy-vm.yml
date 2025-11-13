@@ -7,15 +7,12 @@ on:
   workflow_dispatch:
 
 env:
-  DEPLOY_USER: siseko
-  DEPLOY_HOST: localhost
-  DEPLOY_PORT: 2222
   TARGET_DIR: /opt/tasklistapp
 
 jobs:
   deploy:
-    name: Deploy to WSL VM
-    runs-on: ubuntu-latest
+    name: Deploy to Self-Hosted VM
+    runs-on: [self-hosted, linux]
 
     steps:
       - name: Checkout repository
@@ -23,54 +20,41 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up SSH
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-
-      - name: Add host to known_hosts
+      - name: Install Ansible
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_KNOWN_HOSTS }}" >> ~/.ssh/known_hosts
-          chmod 644 ~/.ssh/known_hosts
-
-      - name: Add SSH config
-        run: |
-          mkdir -p ~/.ssh
-          echo "Host wsl-vm" >> ~/.ssh/config
-          echo "  HostName ${{ env.DEPLOY_HOST }}" >> ~/.ssh/config
-          echo "  Port ${{ env.DEPLOY_PORT }}" >> ~/.ssh/config
-          echo "  User ${{ env.DEPLOY_USER }}" >> ~/.ssh/config
-          echo "  StrictHostKeyChecking no" >> ~/.ssh/config
-
-      - name: Test SSH connection
-        run: ssh wsl-vm "echo 'SSH connection successful!'"
+          sudo apt-get update
+          sudo apt-get install -y ansible
 
       - name: Create target directory
         run: |
-          ssh -p ${{ env.DEPLOY_PORT }} ${{ env.DEPLOY_USER }}@${{ env.DEPLOY_HOST }} "
-            sudo mkdir -p ${{ env.TARGET_DIR }}
-            sudo chown -R ${{ env.DEPLOY_USER }}:${{ env.DEPLOY_USER }} ${{ env.TARGET_DIR }}
-          "
+          sudo mkdir -p ${{ env.TARGET_DIR }}
+          sudo chown -R $USER:$USER ${{ env.TARGET_DIR }}
 
-      - name: Copy docker-compose.yml to VM
+      - name: Copy Ansible files
         run: |
-          scp -P ${{ env.DEPLOY_PORT }} ansible/docker-compose.yml ${{ env.DEPLOY_USER }}@${{ env.DEPLOY_HOST }}:${{ env.TARGET_DIR }}/
-          scp -P ${{ env.DEPLOY_PORT }} ansible/.env ${{ env.DEPLOY_USER }}@${{ env.DEPLOY_HOST }}:${{ env.TARGET_DIR }}/ 2>/dev/null || echo "No .env file found, using default values"
+          cp -r ansible/ ${{ env.TARGET_DIR }}/
+          chmod 600 ${{ env.TARGET_DIR }}/ansible/group_vars/all/vault.yml
 
-      - name: Deploy application stack
+      - name: Run Ansible playbook
+        working-directory: ${{ env.TARGET_DIR }}/ansible
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: 'False'
         run: |
-          ssh -p ${{ env.DEPLOY_PORT }} ${{ env.DEPLOY_USER }}@${{ env.DEPLOY_HOST }} "
-            cd ${{ env.TARGET_DIR }}
-            echo '${{ secrets.GITHUB_TOKEN }}' | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            docker-compose pull
-            docker-compose up -d --remove-orphans
-          "
+          ansible-playbook -i inventory.ini deploy_vm.yml --vault-password-file <(echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}")
+
+      - name: Start containers
+        run: |
+          cd ${{ env.TARGET_DIR }}
+          docker-compose up -d
+
+      - name: Verify containers
+        run: |
+          docker ps
+          echo 'Deployment completed successfully!'
 
       - name: Verify deployment
         run: |
           ssh -p ${{ env.DEPLOY_PORT }} ${{ env.DEPLOY_USER }}@${{ env.DEPLOY_HOST }} "
             docker ps
-            echo -e '\nContainer logs:'
             docker-compose logs --tail=10
           "
