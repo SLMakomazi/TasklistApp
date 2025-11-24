@@ -788,6 +788,40 @@ curl http://172.18.253.249:8080/api/tasks
 
 ## 🚀 GitHub Actions Runner & Deployment
 
+### Self-Hosted Runner Configuration
+
+#### Runner Details
+- **OS**: Ubuntu (WSL)
+- **Location**: `~/actions-runner`
+- **Service User**: `siseko`
+- **Runner Label**: `self-hosted, linux`
+- **Sudo Access**: Passwordless sudo configured via `visudo`
+
+#### Management Commands
+```bash
+# Install as service (run once)
+sudo ./svc.sh install siseko
+
+# Start the runner service
+sudo ./svc.sh start
+
+# Check status
+sudo ./svc.sh status
+
+# View logs
+tail -f ~/actions-runner/_diag/Runner_*.log
+```
+
+#### Service Configuration
+- Runs as a systemd service under user `siseko`
+- Auto-starts on system boot
+- Logs rotate automatically
+
+### Deployment Workflows
+- **VM Deployment**: Triggered on push to `main`
+- **Kubernetes Deployment**: Triggered via ArgoCD sync
+- **Manual Triggers**: Available for both deployment types
+
 **Runner Name:** TasklistRunner2  
 **Machine / Runner Location:** Windows 10 VM, C:\actions-runner  
 **Service Account:** NETWORK SERVICE  

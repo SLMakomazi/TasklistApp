@@ -19,24 +19,40 @@ This directory contains the GitHub Actions workflows that automate the build, te
 
 ## Self-Hosted Runner
 
-### Runner Details
-- **Name**: TasklistRunner2
-- **Location**: WSL (Ubuntu)
-- **Service Account**: NETWORK SERVICE
+### Runner Configuration
+- **OS**: Ubuntu (WSL)
+- **Location**: `~/actions-runner`
+- **Service User**: `siseko`
+- **Runner Label**: `self-hosted, linux`
+- **Sudo Access**: Passwordless sudo configured via `visudo`
 - **Status**: Configured to auto-start as a service
-- **Logs**: `/actions-runner/_diag/Runner_*.log`
+- **Logs**: `~/actions-runner/_diag/Runner_*.log`
 
 ### Management Commands
 ```bash
-# Check status
-sudo systemctl status actions.runner.*.service
+# Install as service (run once)
+sudo ./svc.sh install siseko
 
-# Start service
-sudo systemctl start actions.runner.*.service
+# Start the runner service
+sudo ./svc.sh start
+
+# Check status
+sudo ./svc.sh status
 
 # View logs
-sudo tail -f /actions-runner/_diag/Runner_*.log
+tail -f ~/actions-runner/_diag/Runner_*.log
+
+# Stop the service
+sudo ./svc.sh stop
+
+# Uninstall service
+sudo ./svc.sh uninstall
 ```
+
+### Service Configuration
+- Runs as a systemd service under user `siseko`
+- Auto-starts on system boot
+- Logs rotate automatically
 
 ## Deployment Workflow
 

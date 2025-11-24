@@ -18,15 +18,16 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Install Ansible
+      # No sudo needed – runner has passwordless sudo from visudo
+      - name: Install Ansible and sshpass
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ansible sshpass
+          sudo -n apt-get update
+          sudo -n apt-get install -y ansible sshpass
 
       - name: Create Work Directory
         run: |
-          sudo mkdir -p ${{ env.TARGET_DIR }}
-          sudo chown -R $USER:$USER ${{ env.TARGET_DIR }}
+          sudo -n mkdir -p ${{ env.TARGET_DIR }}
+          sudo -n chown -R $USER:$USER ${{ env.TARGET_DIR }}
 
       - name: Copy Ansible Files
         run: |
@@ -38,7 +39,7 @@ jobs:
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.VM_HOST }} >> ~/.ssh/known_hosts
-          
+
       - name: Create Ansible Vault Password File
         run: |
           echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > ~/.vault_pass.txt
