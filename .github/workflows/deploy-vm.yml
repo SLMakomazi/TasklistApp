@@ -43,35 +43,30 @@ jobs:
       # Ensure runner's home directory and SSH directory exist with correct permissions
       - name: Setup Directories and Permissions
         run: |
-          # Create and secure SSH directory
+          # Create and secure SSH directory with strict permissions
           mkdir -p ${{ env.SSH_DIR }}
           chmod 700 ${{ env.SSH_DIR }}
-          chown -R siseko:siseko ${{ env.SSH_DIR }}
           
           # Ensure vault password file has correct permissions
           touch ${{ env.VAULT_PASS_PATH }}
           chmod 600 ${{ env.VAULT_PASS_PATH }}
-          chown siseko:siseko ${{ env.VAULT_PASS_PATH }}
 
-      # Setup SSH key with proper ownership
+      # Setup SSH key with proper permissions
       - name: Setup SSH Key
         run: |
-          # Write private key
+          # Write private key with secure permissions
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ${{ env.SSH_DIR }}/id_rsa
           chmod 600 ${{ env.SSH_DIR }}/id_rsa
-          chown siseko:siseko ${{ env.SSH_DIR }}/id_rsa
           
-          # Update known_hosts
+          # Update known_hosts with appropriate permissions
           ssh-keyscan -H ${{ secrets.VM_HOST }} >> ${{ env.SSH_DIR }}/known_hosts
           chmod 644 ${{ env.SSH_DIR }}/known_hosts
-          chown siseko:siseko ${{ env.SSH_DIR }}/known_hosts
 
-      # Create Ansible Vault password file with proper ownership
+      # Create Ansible Vault password file with secure permissions
       - name: Create Ansible Vault Password File
         run: |
           echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > ${{ env.VAULT_PASS_PATH }}
           chmod 600 ${{ env.VAULT_PASS_PATH }}
-          chown siseko:siseko ${{ env.VAULT_PASS_PATH }}
 
       # Run Ansible playbook as the siseko user
       - name: Run Ansible Playbook (Deploy to VM)
