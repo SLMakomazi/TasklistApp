@@ -18,16 +18,16 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # Use non-interactive sudo for WSL
+      # Use sudo with password stored in GitHub Secrets
       - name: Install Ansible and sshpass
         run: |
-          echo | sudo -S apt-get update
-          echo | sudo -S apt-get install -y ansible sshpass
+          echo "${{ secrets.SUDO_PASSWORD }}" | sudo -S apt-get update
+          echo "${{ secrets.SUDO_PASSWORD }}" | sudo -S apt-get install -y ansible sshpass
 
       - name: Create Work Directory
         run: |
-          echo | sudo -S mkdir -p ${{ env.TARGET_DIR }}
-          echo | sudo -S chown -R $USER:$USER ${{ env.TARGET_DIR }}
+          echo "${{ secrets.SUDO_PASSWORD }}" | sudo -S mkdir -p ${{ env.TARGET_DIR }}
+          echo "${{ secrets.SUDO_PASSWORD }}" | sudo -S chown -R $USER:$USER ${{ env.TARGET_DIR }}
 
       - name: Copy Ansible Files
         run: |
