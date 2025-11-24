@@ -45,21 +45,20 @@ jobs:
       # Setup SSH environment with proper permissions
       - name: Setup SSH Environment
         run: |
-          # Create .ssh directory
+          # Ensure .ssh directory exists
           mkdir -p ${{ env.SSH_DIR }}
           chmod 700 ${{ env.SSH_DIR }}
 
-          # Write private key safely
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > /tmp/id_rsa
-          mv /tmp/id_rsa ${{ env.SSH_DIR }}/id_rsa
+          # Write SSH private key safely
+          printf "%s\n" "${{ secrets.SSH_PRIVATE_KEY }}" > ${{ env.SSH_DIR }}/id_rsa
           chmod 600 ${{ env.SSH_DIR }}/id_rsa
 
           # Update known_hosts
           ssh-keyscan -H ${{ secrets.VM_HOST }} >> ${{ env.SSH_DIR }}/known_hosts
           chmod 644 ${{ env.SSH_DIR }}/known_hosts
 
-          # Write vault password file
-          echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > ${{ env.VAULT_PASS_PATH }}
+          # Write vault password safely
+          printf "%s\n" "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > ${{ env.VAULT_PASS_PATH }}
           chmod 600 ${{ env.VAULT_PASS_PATH }}
 
           # Ensure correct ownership for siseko
