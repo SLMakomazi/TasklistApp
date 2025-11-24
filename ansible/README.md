@@ -1,9 +1,79 @@
-# TasklistApp Deployment
+# TasklistApp Deployment with Ansible
 
-This directory contains the Docker Compose configuration and deployment scripts for the TasklistApp. The application consists of three main services:
-- Frontend (React)
-- Backend API (Node.js)
-- Database (PostgreSQL)
+This directory contains Ansible playbooks and configurations for deploying the TasklistApp to a VM. The deployment includes:
+- Automated Docker and Docker Compose setup
+- Application deployment and configuration
+- Service management
+
+## 🔐 Vault Configuration
+
+### Vault Password
+- Location: `ansible/vault_pass.txt`
+- **Important**: This file is in `.gitignore` for security
+- Required for decrypting sensitive data in `group_vars/all/vault.yml`
+
+### Managing Secrets
+To edit encrypted files:
+```bash
+# Set environment variable
+export ANSIBLE_VAULT_PASSWORD_FILE=./vault_pass.txt
+
+# Edit vault
+export EDITOR=nano  # or your preferred editor
+ansible-vault edit group_vars/all/vault.yml
+```
+
+## 🚀 Deployment
+
+### Prerequisites
+- Target VM with SSH access
+- Python 3.6+ on the target machine
+- Sudo privileges for the deployment user
+
+### Inventory
+Update `inventory.ini` with your VM details:
+```ini
+[tasklist_vm]
+your_vm_hostname_or_ip  ansible_user=your_ssh_user
+```
+
+### Required Secrets
+Ensure these are set in your CI/CD environment:
+- `VM_HOST`: Target VM hostname/IP
+- `VM_USER`: SSH username
+- `SSH_PRIVATE_KEY`: Private key for authentication
+- `ANSIBLE_VAULT_PASSWORD`: Vault password
+
+### Running the Playbook
+```bash
+ansible-playbook -i inventory.ini deploy_vm.yml --vault-password-file=./vault_pass.txt
+```
+
+## 📂 Deployment Structure
+```
+/opt/tasklistapp/
+├── docker-compose.yml
+├── .env
+├── backend/
+├── frontend/
+└── logs/
+```
+
+## 🔄 Post-Deployment
+
+### Verify Deployment
+```bash
+# Check running containers
+ssh $VM_USER@$VM_HOST "cd /opt/tasklistapp && docker-compose ps"
+
+# View logs
+ssh $VM_USER@$VM_HOST "cd /opt/tasklistapp && docker-compose logs -f"
+```
+
+### Updating the Deployment
+1. Push changes to your repository
+2. The GitHub Actions workflow will automatically trigger
+3. The self-hosted runner will execute the deployment playbook
 
 ## 🐳 Docker Compose Deployment
 

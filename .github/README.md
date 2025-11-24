@@ -15,7 +15,49 @@ This directory contains the GitHub Actions workflows that automate the build, te
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    GitHub Actions Workflows                      │
+│                   # GitHub Actions Workflows
+
+## Self-Hosted Runner
+
+### Runner Details
+- **Name**: TasklistRunner2
+- **Location**: WSL (Ubuntu)
+- **Service Account**: NETWORK SERVICE
+- **Status**: Configured to auto-start as a service
+- **Logs**: `/actions-runner/_diag/Runner_*.log`
+
+### Management Commands
+```bash
+# Check status
+sudo systemctl status actions.runner.*.service
+
+# Start service
+sudo systemctl start actions.runner.*.service
+
+# View logs
+sudo tail -f /actions-runner/_diag/Runner_*.log
+```
+
+## Deployment Workflow
+
+### VM Deployment (`deploy-vm.yml`)
+- **Trigger**: On push to main or manual trigger
+- **Environment**: Uses self-hosted runner
+- **Secrets Required**:
+  - `VM_HOST`: Target VM hostname/IP
+  - `VM_USER`: SSH username
+  - `SSH_PRIVATE_KEY`: SSH private key for authentication
+  - `ANSIBLE_VAULT_PASSWORD`: Password for Ansible Vault
+
+### Deployment Location
+- **Target Directory**: `/opt/tasklistapp` on the VM
+- **Access**: SSH into VM and check `/opt/tasklistapp`
+
+## Troubleshooting
+1. If runner doesn't pick up jobs:
+   - Check service status: `sudo systemctl status actions.runner.*.service`
+   - Check logs: `sudo tail -f /actions-runner/_diag/Runner_*.log`
+   - Restart service: `sudo systemctl restart actions.runner.*.service`                      │
 ├─────────────────────────────────────────────────────────────────┤
 │  ┌─────────────────────────────────────────────────────────┐    │
 │  │              🧪 ci-testApplication.yml                  │    │

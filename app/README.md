@@ -390,3 +390,22 @@ mvn clean package -DskipTests
 - **Kubernetes Deployment**: [../k8s/README.md](../k8s/README.md) - Kubernetes deployment guide (NEW)
 - **VM Deployment**: [../vm/README.md](../vm/README.md) - VM deployment guide
 - **CI/CD Workflows**: [../.github/workflows/README.md](../.github/workflows/README.md) - Pipeline documentation
+
+## 🚀 GitHub Actions Runner & Deployment
+
+### Self-Hosted Runner
+- **Runner Name**: TasklistRunner2
+- **Location**: Windows 10 VM
+- **Runner Directory**: `C:\actions-runner`
+- **Service Account**: NETWORK SERVICE
+- **Status**: Running as Windows Service
+
+### Workflow Integration
+- Jobs are automatically picked up by the self-hosted runner
+- Build artifacts and logs are stored in: `C:\actions-runner\_work\TasklistApp`
+- To monitor running jobs, check the GitHub Actions tab in the repository
+
+### Troubleshooting
+- **Service Status**: Check with `Get-Service "actions.runner.*"`
+- **Logs**: Located in `C:\actions-runner\_diag`
+- **Restart Service**: `Restart-Service "actions.runner.SLMakomazi-TasklistApp.TasklistRunner"`

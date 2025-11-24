@@ -78,4 +78,4 @@ logs/
 *.log
 
 # GitHub Actions Runner
-actions-runner/
+actions-runner/ansible/vault_pass.txt

@@ -17,44 +17,51 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
 
       - name: Install Ansible
         run: |
           sudo apt-get update
-          sudo apt-get install -y ansible
+          sudo apt-get install -y ansible sshpass
 
-      - name: Create target directory
+      - name: Create Work Directory
         run: |
           sudo mkdir -p ${{ env.TARGET_DIR }}
           sudo chown -R $USER:$USER ${{ env.TARGET_DIR }}
 
-      - name: Copy Ansible files
+      - name: Copy Ansible Files
         run: |
           cp -r ansible/ ${{ env.TARGET_DIR }}/
-          chmod 600 ${{ env.TARGET_DIR }}/ansible/group_vars/all/vault.yml
 
-      - name: Run Ansible playbook
+      - name: Setup SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.VM_HOST }} >> ~/.ssh/known_hosts
+          
+      - name: Create Ansible Vault Password File
+        run: |
+          echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > ~/.vault_pass.txt
+          chmod 600 ~/.vault_pass.txt
+
+      - name: Run Ansible Playbook (Deploy to VM)
         working-directory: ${{ env.TARGET_DIR }}/ansible
         env:
           ANSIBLE_HOST_KEY_CHECKING: 'False'
         run: |
-          ansible-playbook -i inventory.ini deploy_vm.yml --vault-password-file <(echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}")
+          ansible-playbook \
+            -i inventory.ini \
+            deploy_vm.yml \
+            --vault-password-file ~/.vault_pass.txt
 
-      - name: Start containers
+      - name: Start Docker Compose on VM
         run: |
-          cd ${{ env.TARGET_DIR }}
-          docker-compose up -d
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa \
+            ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
+            "cd /opt/tasklistapp && docker-compose up -d"
 
-      - name: Verify containers
+      - name: Verify deployment on VM
         run: |
-          docker ps
-          echo 'Deployment completed successfully!'
-
-      - name: Verify deployment
-        run: |
-          ssh -p ${{ env.DEPLOY_PORT }} ${{ env.DEPLOY_USER }}@${{ env.DEPLOY_HOST }} "
-            docker ps
-            docker-compose logs --tail=10
-          "
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa \
+            ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
+            "docker ps && docker-compose logs --tail=20"

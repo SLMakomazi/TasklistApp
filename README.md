@@ -786,6 +786,32 @@ curl http://172.18.253.249:8080/api/tasks
 - **Service**: Runs as systemd service for production stability
 - **Status**: ✅ **FULLY OPERATIONAL**
 
+## 🚀 GitHub Actions Runner & Deployment
+
+**Runner Name:** TasklistRunner2  
+**Machine / Runner Location:** Windows 10 VM, C:\actions-runner  
+**Service Account:** NETWORK SERVICE  
+**Status:** Running ✅  
+
+### Setup Summary
+- Runner copied to C:\actions-runner
+- Configured with GitHub URL and token
+- Work folder: _work
+- Installed as a Windows service under NETWORK SERVICE
+- Service starts automatically on system boot
+- Connected to repository: https://github.com/SLMakomazi/TasklistApp
+
+### Workflow & Deployment
+- Jobs are picked up by TasklistRunner2 on this VM
+- Outputs are saved in: C:\actions-runner\_work\TasklistApp
+- Deployment script logs can be redirected to a file:
+
+```powershell
+./deploy.ps1 > C:\actions-runner\_work\deploy.log 2>&1
+```
+
+All pushes to the repository now trigger jobs on this VM automatically.
+
 ## 📚 API Documentation
 
 ### **Base URL (Both Deployments)**
