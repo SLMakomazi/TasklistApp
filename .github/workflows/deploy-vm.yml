@@ -8,6 +8,8 @@ on:
 
 env:
   TARGET_DIR: /opt/tasklistapp
+  TEMP_DIR: ${{ github.workspace }}/.temp
+  SSH_DIR: ${{ github.workspace }}/.temp/.ssh
 
 jobs:
   deploy:
@@ -18,51 +20,67 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # Use sudo with password stored in GitHub Secrets
+      # Install Ansible and sshpass using password from GitHub Secrets
       - name: Install Ansible and sshpass
         run: |
-          echo "${{ secrets.SUDO_PASSWORD }}" | sudo -S apt-get update
+          echo "${{ secrets.SUDO_PASSWORD }}" | sudo -S apt-get update -y
           echo "${{ secrets.SUDO_PASSWORD }}" | sudo -S apt-get install -y ansible sshpass
 
+      # Create target directory on VM host
       - name: Create Work Directory
         run: |
           echo "${{ secrets.SUDO_PASSWORD }}" | sudo -S mkdir -p ${{ env.TARGET_DIR }}
           echo "${{ secrets.SUDO_PASSWORD }}" | sudo -S chown -R $USER:$USER ${{ env.TARGET_DIR }}
 
+      # Copy Ansible files to target directory
       - name: Copy Ansible Files
         run: |
           cp -r ansible/ ${{ env.TARGET_DIR }}/
 
+      # Create temporary directory
+      - name: Create temp directory
+        run: |
+          mkdir -p ${{ env.TEMP_DIR }}
+          chmod 700 ${{ env.TEMP_DIR }}
+
+      # Setup SSH key in a temporary directory
       - name: Setup SSH Key
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ secrets.VM_HOST }} >> ~/.ssh/known_hosts
+          mkdir -p ${{ env.SSH_DIR }}
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ${{ env.SSH_DIR }}/id_rsa
+          chmod 600 ${{ env.SSH_DIR }}/id_rsa
+          ssh-keyscan -H ${{ secrets.VM_HOST }} >> ${{ env.SSH_DIR }}/known_hosts
+          chmod 644 ${{ env.SSH_DIR }}/known_hosts
 
+      # Create Ansible Vault password file
       - name: Create Ansible Vault Password File
         run: |
-          echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > ~/.vault_pass.txt
-          chmod 600 ~/.vault_pass.txt
+          echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > ${{ env.TEMP_DIR }}/.vault_pass.txt
+          chmod 600 ${{ env.TEMP_DIR }}/.vault_pass.txt
 
+      # Run Ansible playbook
       - name: Run Ansible Playbook (Deploy to VM)
         working-directory: ${{ env.TARGET_DIR }}/ansible
         env:
           ANSIBLE_HOST_KEY_CHECKING: 'False'
+          HOME: ${{ env.TEMP_DIR }}
         run: |
           ansible-playbook \
             -i inventory.ini \
             deploy_vm.yml \
-            --vault-password-file ~/.vault_pass.txt
+            --vault-password-file ${{ env.TEMP_DIR }}/.vault_pass.txt \
+            --private-key ${{ env.SSH_DIR }}/id_rsa
 
+      # Start Docker Compose on VM
       - name: Start Docker Compose on VM
         run: |
-          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa \
+          ssh -o StrictHostKeyChecking=no -i ${{ env.SSH_DIR }}/id_rsa \
             ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
             "cd /opt/tasklistapp && docker-compose up -d"
 
+      # Verify deployment
       - name: Verify deployment on VM
         run: |
-          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa \
+          ssh -o StrictHostKeyChecking=no -i ${{ env.SSH_DIR }}/id_rsa \
             ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
             "docker ps && docker-compose logs --tail=20"
