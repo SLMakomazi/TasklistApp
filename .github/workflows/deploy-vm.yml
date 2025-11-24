@@ -43,31 +43,24 @@ jobs:
         run: |
           cp -r ansible/ ${{ env.TARGET_DIR }}/
 
-      # Fix for Exit Code 1: Ensure SSH directory exists and is owned by the runner user
-      - name: Setup Directories and Permissions (Guaranteed Writable)
+      # Setup SSH environment with proper permissions
+      - name: Setup SSH Environment
         run: |
-          # 🚨 FIX FOR EXIT CODE 1: Use sudo to create/chown the SSH directory to the runner user.
-          echo "${{ secrets.SUDO_PASSWORD }}" | sudo -S bash -c "
-            mkdir -p ${{ env.SSH_DIR }} && \
-            chown -R $USER:$USER ${{ env.SSH_DIR }}
-          "
-          # Set strict permissions (700)
+          # Create .ssh directory with correct permissions
+          mkdir -p ${{ env.SSH_DIR }}
           chmod 700 ${{ env.SSH_DIR }}
           
-          # Ensure vault password file has correct permissions
-          touch ${{ env.VAULT_PASS_PATH }}
-          chmod 600 ${{ env.VAULT_PASS_PATH }}
-
-      # Setup SSH key with proper permissions
-      - name: Setup SSH Key
-        run: |
-          # Write private key with secure permissions (This should now pass)
+          # Write private key with secure permissions
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ${{ env.SSH_DIR }}/id_rsa
           chmod 600 ${{ env.SSH_DIR }}/id_rsa
           
           # Update known_hosts with appropriate permissions
           ssh-keyscan -H ${{ secrets.VM_HOST }} >> ${{ env.SSH_DIR }}/known_hosts
           chmod 644 ${{ env.SSH_DIR }}/known_hosts
+          
+          # Ensure vault password file has correct permissions
+          touch ${{ env.VAULT_PASS_PATH }}
+          chmod 600 ${{ env.VAULT_PASS_PATH }}
 
       # Create Ansible Vault password file with secure permissions
       - name: Create Ansible Vault Password File
