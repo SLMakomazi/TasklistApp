@@ -48,6 +48,7 @@ jobs:
       - name: Run Ansible Playbook (Deploy to VM)
         working-directory: ${{ env.TARGET_DIR }}/ansible
         env:
+          
           ANSIBLE_HOST_KEY_CHECKING: 'False'
         run: |
           ansible-playbook \
