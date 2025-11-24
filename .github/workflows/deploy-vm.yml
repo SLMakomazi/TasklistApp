@@ -8,8 +8,9 @@ on:
 
 env:
   TARGET_DIR: /opt/tasklistapp
-  TEMP_DIR: ${{ github.workspace }}/.temp
-  SSH_DIR: ${{ github.workspace }}/.temp/.ssh
+  # Using runner's home directory for better compatibility
+  SSH_DIR: ~/.ssh
+  VAULT_PASS_PATH: ~/.vault_pass.txt
 
 jobs:
   deploy:
@@ -37,13 +38,7 @@ jobs:
         run: |
           cp -r ansible/ ${{ env.TARGET_DIR }}/
 
-      # Create temporary directory
-      - name: Create temp directory
-        run: |
-          mkdir -p ${{ env.TEMP_DIR }}
-          chmod 700 ${{ env.TEMP_DIR }}
-
-      # Setup SSH key in a temporary directory
+      # Setup SSH key in the runner's home directory
       - name: Setup SSH Key
         run: |
           mkdir -p ${{ env.SSH_DIR }}
@@ -52,35 +47,34 @@ jobs:
           ssh-keyscan -H ${{ secrets.VM_HOST }} >> ${{ env.SSH_DIR }}/known_hosts
           chmod 644 ${{ env.SSH_DIR }}/known_hosts
 
-      # Create Ansible Vault password file
+      # Create Ansible Vault password file in the runner's home directory
       - name: Create Ansible Vault Password File
         run: |
-          echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > ${{ env.TEMP_DIR }}/.vault_pass.txt
-          chmod 600 ${{ env.TEMP_DIR }}/.vault_pass.txt
+          echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > ${{ env.VAULT_PASS_PATH }}
+          chmod 600 ${{ env.VAULT_PASS_PATH }}
 
       # Run Ansible playbook
       - name: Run Ansible Playbook (Deploy to VM)
         working-directory: ${{ env.TARGET_DIR }}/ansible
         env:
           ANSIBLE_HOST_KEY_CHECKING: 'False'
-          HOME: ${{ env.TEMP_DIR }}
         run: |
           ansible-playbook \
             -i inventory.ini \
             deploy_vm.yml \
-            --vault-password-file ${{ env.TEMP_DIR }}/.vault_pass.txt \
+            --vault-password-file ${{ env.VAULT_PASS_PATH }} \
             --private-key ${{ env.SSH_DIR }}/id_rsa
 
       # Start Docker Compose on VM
       - name: Start Docker Compose on VM
         run: |
-          ssh -o StrictHostKeyChecking=no -i ${{ env.SSH_DIR }}/id_rsa \
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa \
             ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
             "cd /opt/tasklistapp && docker-compose up -d"
 
       # Verify deployment
       - name: Verify deployment on VM
         run: |
-          ssh -o StrictHostKeyChecking=no -i ${{ env.SSH_DIR }}/id_rsa \
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa \
             ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
             "docker ps && docker-compose logs --tail=20"
