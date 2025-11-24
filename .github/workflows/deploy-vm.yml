@@ -9,7 +9,7 @@ on:
 env:
   # Target directory on the VM
   TARGET_DIR: /opt/tasklistapp
-  # Absolute paths for runner's home directory
+  # Absolute paths for runner's home directory (siseko is the runner user)
   RUNNER_HOME: /home/siseko
   SSH_DIR: /home/siseko/.ssh
   VAULT_PASS_PATH: /home/siseko/.vault_pass.txt
@@ -29,22 +29,29 @@ jobs:
           echo "${{ secrets.SUDO_PASSWORD }}" | sudo -S apt-get update -y
           echo "${{ secrets.SUDO_PASSWORD }}" | sudo -S apt-get install -y ansible sshpass
 
-      # Create target directory on VM host
-      - name: Create Work Directory
+      # Create target directory on VM host and ensure runner user owns it
+      - name: Create Work Directory and Set Permissions
         run: |
-          echo "${{ secrets.SUDO_PASSWORD }}" | sudo -S mkdir -p ${{ env.TARGET_DIR }}
-          echo "${{ secrets.SUDO_PASSWORD }}" | sudo -S chown -R $USER:$USER ${{ env.TARGET_DIR }}
+          # Combined mkdir and chown using sudo for reliability
+          echo "${{ secrets.SUDO_PASSWORD }}" | sudo -S bash -c "
+            mkdir -p ${{ env.TARGET_DIR }} && \
+            chown -R $USER:$USER ${{ env.TARGET_DIR }}
+          "
 
       # Copy Ansible files to target directory
       - name: Copy Ansible Files
         run: |
           cp -r ansible/ ${{ env.TARGET_DIR }}/
 
-      # Ensure runner's home directory and SSH directory exist with correct permissions
-      - name: Setup Directories and Permissions
+      # Fix for Exit Code 1: Ensure SSH directory exists and is owned by the runner user
+      - name: Setup Directories and Permissions (Guaranteed Writable)
         run: |
-          # Create and secure SSH directory with strict permissions
-          mkdir -p ${{ env.SSH_DIR }}
+          # 🚨 FIX FOR EXIT CODE 1: Use sudo to create/chown the SSH directory to the runner user.
+          echo "${{ secrets.SUDO_PASSWORD }}" | sudo -S bash -c "
+            mkdir -p ${{ env.SSH_DIR }} && \
+            chown -R $USER:$USER ${{ env.SSH_DIR }}
+          "
+          # Set strict permissions (700)
           chmod 700 ${{ env.SSH_DIR }}
           
           # Ensure vault password file has correct permissions
@@ -54,7 +61,7 @@ jobs:
       # Setup SSH key with proper permissions
       - name: Setup SSH Key
         run: |
-          # Write private key with secure permissions
+          # Write private key with secure permissions (This should now pass)
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ${{ env.SSH_DIR }}/id_rsa
           chmod 600 ${{ env.SSH_DIR }}/id_rsa
           
@@ -73,8 +80,10 @@ jobs:
         working-directory: ${{ env.TARGET_DIR }}/ansible
         env:
           ANSIBLE_HOST_KEY_CHECKING: 'False'
-          HOME: ${{ env.RUNNER_HOME }}  # Ensure HOME is set correctly
+          HOME: ${{ env.RUNNER_HOME }}  # Ensure HOME is set correctly for ssh-agent lookup
         run: |
+          # 🚨 FIX FOR ANSIBLE SYNTAX: Ensure all environment variables are correctly passed as arguments to bash -c.
+          # Arguments: $0=PWD, $1=VAULT_PATH, $2=SSH_KEY_PATH
           sudo -u siseko bash -c '
             cd "$0" && \
             ansible-playbook \
@@ -82,7 +91,7 @@ jobs:
               deploy_vm.yml \
               --vault-password-file "$1" \
               --private-key "$2"
-          ' "$PWD" "$VAULT_PASS_PATH" "$SSH_DIR/id_rsa"
+          ' "$PWD" "${{ env.VAULT_PASS_PATH }}" "${{ env.SSH_DIR }}/id_rsa"
 
       # Start Docker Compose on VM using the configured SSH key
       - name: Start Docker Compose on VM
@@ -99,5 +108,5 @@ jobs:
               -i ${{ env.SSH_DIR }}/id_rsa \
               ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
               "cd ${{ env.TARGET_DIR }} && \
-               echo 'Containers:' && docker ps && \
-               echo -e '\nLogs:' && docker-compose logs --tail=20"
+              echo 'Containers:' && docker ps && \
+              echo -e '\nLogs:' && docker-compose logs --tail=20"
