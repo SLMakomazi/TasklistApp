@@ -32,7 +32,6 @@ jobs:
       # Create target directory on VM host and ensure runner user owns it
       - name: Create Work Directory and Set Permissions
         run: |
-          # Combined mkdir and chown using sudo for reliability
           echo "${{ secrets.SUDO_PASSWORD }}" | sudo -S bash -c "
             mkdir -p ${{ env.TARGET_DIR }} && \
             chown -R $USER:$USER ${{ env.TARGET_DIR }}
@@ -46,33 +45,34 @@ jobs:
       # Setup SSH environment with proper permissions
       - name: Setup SSH Environment
         run: |
-          # Create .ssh directory with correct permissions
+          # Create .ssh directory
           mkdir -p ${{ env.SSH_DIR }}
           chmod 700 ${{ env.SSH_DIR }}
-          
-          # Write private key with secure permissions
-          cat > ${{ env.SSH_DIR }}/id_rsa << 'EOL'
-          ${{ secrets.SSH_PRIVATE_KEY }}
-          EOL
+
+          # Write private key using a temporary file to avoid YAML parsing issues
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > /tmp/private_key
+          mv /tmp/private_key ${{ env.SSH_DIR }}/id_rsa
           chmod 600 ${{ env.SSH_DIR }}/id_rsa
-          
-          # Update known_hosts with appropriate permissions
+
+          # Update known_hosts
           ssh-keyscan -H ${{ secrets.VM_HOST }} >> ${{ env.SSH_DIR }}/known_hosts
           chmod 644 ${{ env.SSH_DIR }}/known_hosts
-          
-          # Write vault password file with secure permissions
+
+          # Write vault password file
           echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > ${{ env.VAULT_PASS_PATH }}
           chmod 600 ${{ env.VAULT_PASS_PATH }}
+
+          # Ensure correct ownership so SSH can read keys
+          sudo chown -R siseko:siseko ${{ env.SSH_DIR }}
+          sudo chown siseko:siseko ${{ env.VAULT_PASS_PATH }}
 
       # Run Ansible playbook as the siseko user
       - name: Run Ansible Playbook (Deploy to VM)
         working-directory: ${{ env.TARGET_DIR }}/ansible
         env:
           ANSIBLE_HOST_KEY_CHECKING: 'False'
-          HOME: ${{ env.RUNNER_HOME }}  # Ensure HOME is set correctly for ssh-agent lookup
+          HOME: ${{ env.RUNNER_HOME }}
         run: |
-          # 🚨 FIX FOR ANSIBLE SYNTAX: Ensure all environment variables are correctly passed as arguments to bash -c.
-          # Arguments: $0=PWD, $1=VAULT_PATH, $2=SSH_KEY_PATH
           sudo -u siseko bash -c '
             cd "$0" && \
             ansible-playbook \
@@ -90,7 +90,6 @@ jobs:
               ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
               "cd ${{ env.TARGET_DIR }} && docker-compose up -d"
 
-              
       # Verify deployment on VM
       - name: Verify deployment on VM
         run: |
