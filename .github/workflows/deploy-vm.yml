@@ -7,10 +7,12 @@ on:
   workflow_dispatch:
 
 env:
+  # Target directory on the VM
   TARGET_DIR: /opt/tasklistapp
-  # Using runner's home directory for better compatibility
-  SSH_DIR: ~/.ssh
-  VAULT_PASS_PATH: ~/.vault_pass.txt
+  # Absolute paths for runner's home directory
+  RUNNER_HOME: /home/siseko
+  SSH_DIR: /home/siseko/.ssh
+  VAULT_PASS_PATH: /home/siseko/.vault_pass.txt
 
 jobs:
   deploy:
@@ -38,43 +40,69 @@ jobs:
         run: |
           cp -r ansible/ ${{ env.TARGET_DIR }}/
 
-      # Setup SSH key in the runner's home directory
+      # Ensure runner's home directory and SSH directory exist with correct permissions
+      - name: Setup Directories and Permissions
+        run: |
+          # Create and secure SSH directory
+          mkdir -p ${{ env.SSH_DIR }}
+          chmod 700 ${{ env.SSH_DIR }}
+          chown -R siseko:siseko ${{ env.SSH_DIR }}
+          
+          # Ensure vault password file has correct permissions
+          touch ${{ env.VAULT_PASS_PATH }}
+          chmod 600 ${{ env.VAULT_PASS_PATH }}
+          chown siseko:siseko ${{ env.VAULT_PASS_PATH }}
+
+      # Setup SSH key with proper ownership
       - name: Setup SSH Key
         run: |
-          mkdir -p ${{ env.SSH_DIR }}
+          # Write private key
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ${{ env.SSH_DIR }}/id_rsa
           chmod 600 ${{ env.SSH_DIR }}/id_rsa
+          chown siseko:siseko ${{ env.SSH_DIR }}/id_rsa
+          
+          # Update known_hosts
           ssh-keyscan -H ${{ secrets.VM_HOST }} >> ${{ env.SSH_DIR }}/known_hosts
           chmod 644 ${{ env.SSH_DIR }}/known_hosts
+          chown siseko:siseko ${{ env.SSH_DIR }}/known_hosts
 
-      # Create Ansible Vault password file in the runner's home directory
+      # Create Ansible Vault password file with proper ownership
       - name: Create Ansible Vault Password File
         run: |
           echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > ${{ env.VAULT_PASS_PATH }}
           chmod 600 ${{ env.VAULT_PASS_PATH }}
+          chown siseko:siseko ${{ env.VAULT_PASS_PATH }}
 
-      # Run Ansible playbook
+      # Run Ansible playbook as the siseko user
       - name: Run Ansible Playbook (Deploy to VM)
         working-directory: ${{ env.TARGET_DIR }}/ansible
         env:
           ANSIBLE_HOST_KEY_CHECKING: 'False'
+          HOME: ${{ env.RUNNER_HOME }}  # Ensure HOME is set correctly
         run: |
-          ansible-playbook \
-            -i inventory.ini \
-            deploy_vm.yml \
-            --vault-password-file ${{ env.VAULT_PASS_PATH }} \
-            --private-key ${{ env.SSH_DIR }}/id_rsa
+          sudo -u siseko bash -c '
+            cd "$0" && \
+            ansible-playbook \
+              -i inventory.ini \
+              deploy_vm.yml \
+              --vault-password-file "$1" \
+              --private-key "$2"
+          ' "$PWD" "$VAULT_PASS_PATH" "$SSH_DIR/id_rsa"
 
-      # Start Docker Compose on VM
+      # Start Docker Compose on VM using the configured SSH key
       - name: Start Docker Compose on VM
         run: |
-          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa \
-            ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
-            "cd /opt/tasklistapp && docker-compose up -d"
+          ssh -o StrictHostKeyChecking=no \
+              -i ${{ env.SSH_DIR }}/id_rsa \
+              ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
+              "cd ${{ env.TARGET_DIR }} && docker-compose up -d"
 
-      # Verify deployment
+      # Verify deployment on VM
       - name: Verify deployment on VM
         run: |
-          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa \
-            ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
-            "docker ps && docker-compose logs --tail=20"
+          ssh -o StrictHostKeyChecking=no \
+              -i ${{ env.SSH_DIR }}/id_rsa \
+              ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
+              "cd ${{ env.TARGET_DIR }} && \
+               echo 'Containers:' && docker ps && \
+               echo -e '\nLogs:' && docker-compose logs --tail=20"
