@@ -51,20 +51,16 @@ jobs:
           chmod 700 ${{ env.SSH_DIR }}
           
           # Write private key with secure permissions
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ${{ env.SSH_DIR }}/id_rsa
+          cat > ${{ env.SSH_DIR }}/id_rsa << 'EOL'
+          ${{ secrets.SSH_PRIVATE_KEY }}
+          EOL
           chmod 600 ${{ env.SSH_DIR }}/id_rsa
           
           # Update known_hosts with appropriate permissions
           ssh-keyscan -H ${{ secrets.VM_HOST }} >> ${{ env.SSH_DIR }}/known_hosts
           chmod 644 ${{ env.SSH_DIR }}/known_hosts
           
-          # Ensure vault password file has correct permissions
-          touch ${{ env.VAULT_PASS_PATH }}
-          chmod 600 ${{ env.VAULT_PASS_PATH }}
-
-      # Create Ansible Vault password file with secure permissions
-      - name: Create Ansible Vault Password File
-        run: |
+          # Write vault password file with secure permissions
           echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > ${{ env.VAULT_PASS_PATH }}
           chmod 600 ${{ env.VAULT_PASS_PATH }}
 
