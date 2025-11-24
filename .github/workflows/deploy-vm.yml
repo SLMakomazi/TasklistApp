@@ -18,16 +18,16 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # No sudo needed – runner has passwordless sudo from visudo
+      # No sudo needed – runner has passwordless sudo
       - name: Install Ansible and sshpass
         run: |
-          sudo -n apt-get update
-          sudo -n apt-get install -y ansible sshpass
+          apt-get update
+          apt-get install -y ansible sshpass
 
       - name: Create Work Directory
         run: |
-          sudo -n mkdir -p ${{ env.TARGET_DIR }}
-          sudo -n chown -R $USER:$USER ${{ env.TARGET_DIR }}
+          mkdir -p ${{ env.TARGET_DIR }}
+          chown -R $USER:$USER ${{ env.TARGET_DIR }}
 
       - name: Copy Ansible Files
         run: |
@@ -48,7 +48,6 @@ jobs:
       - name: Run Ansible Playbook (Deploy to VM)
         working-directory: ${{ env.TARGET_DIR }}/ansible
         env:
-          
           ANSIBLE_HOST_KEY_CHECKING: 'False'
         run: |
           ansible-playbook \
