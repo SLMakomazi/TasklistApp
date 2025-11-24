@@ -101,6 +101,7 @@ jobs:
               ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
               "cd ${{ env.TARGET_DIR }} && docker-compose up -d"
 
+              
       # Verify deployment on VM
       - name: Verify deployment on VM
         run: |
