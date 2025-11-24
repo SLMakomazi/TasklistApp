@@ -23,18 +23,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # Install Ansible and sshpass using password from GitHub Secrets
+      # Install Ansible and sshpass
       - name: Install Ansible and sshpass
         run: |
           echo "${{ secrets.SUDO_PASSWORD }}" | sudo -S apt-get update -y
           echo "${{ secrets.SUDO_PASSWORD }}" | sudo -S apt-get install -y ansible sshpass
 
-      # Create target directory on VM host and ensure runner user owns it
+      # Create target directory and set ownership
       - name: Create Work Directory and Set Permissions
         run: |
           echo "${{ secrets.SUDO_PASSWORD }}" | sudo -S bash -c "
             mkdir -p ${{ env.TARGET_DIR }} && \
-            chown -R $USER:$USER ${{ env.TARGET_DIR }}
+            chown -R siseko:siseko ${{ env.TARGET_DIR }}
           "
 
       # Copy Ansible files to target directory
@@ -49,9 +49,9 @@ jobs:
           mkdir -p ${{ env.SSH_DIR }}
           chmod 700 ${{ env.SSH_DIR }}
 
-          # Write private key using a temporary file to avoid YAML parsing issues
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > /tmp/private_key
-          mv /tmp/private_key ${{ env.SSH_DIR }}/id_rsa
+          # Write private key safely
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > /tmp/id_rsa
+          mv /tmp/id_rsa ${{ env.SSH_DIR }}/id_rsa
           chmod 600 ${{ env.SSH_DIR }}/id_rsa
 
           # Update known_hosts
@@ -62,11 +62,11 @@ jobs:
           echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > ${{ env.VAULT_PASS_PATH }}
           chmod 600 ${{ env.VAULT_PASS_PATH }}
 
-          # Ensure correct ownership so SSH can read keys
+          # Ensure correct ownership for siseko
           sudo chown -R siseko:siseko ${{ env.SSH_DIR }}
           sudo chown siseko:siseko ${{ env.VAULT_PASS_PATH }}
 
-      # Run Ansible playbook as the siseko user
+      # Run Ansible playbook as siseko
       - name: Run Ansible Playbook (Deploy to VM)
         working-directory: ${{ env.TARGET_DIR }}/ansible
         env:
@@ -82,7 +82,7 @@ jobs:
               --private-key "$2"
           ' "$PWD" "${{ env.VAULT_PASS_PATH }}" "${{ env.SSH_DIR }}/id_rsa"
 
-      # Start Docker Compose on VM using the configured SSH key
+      # Start Docker Compose on VM
       - name: Start Docker Compose on VM
         run: |
           ssh -o StrictHostKeyChecking=no \
@@ -90,7 +90,7 @@ jobs:
               ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
               "cd ${{ env.TARGET_DIR }} && docker-compose up -d"
 
-      # Verify deployment on VM
+      # Verify deployment
       - name: Verify deployment on VM
         run: |
           ssh -o StrictHostKeyChecking=no \
