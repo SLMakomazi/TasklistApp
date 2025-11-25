@@ -45,7 +45,7 @@ jobs:
       # Setup SSH environment with proper permissions
       - name: Setup SSH Environment
         run: |
-          # Ensure .ssh directory exists
+          # Ensure .ssh directory exists with correct permissions
           mkdir -p ${{ env.SSH_DIR }}
           chmod 700 ${{ env.SSH_DIR }}
 
@@ -61,9 +61,9 @@ jobs:
           printf "%s\n" "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > ${{ env.VAULT_PASS_PATH }}
           chmod 600 ${{ env.VAULT_PASS_PATH }}
 
-          # Ensure correct ownership for siseko
-          sudo chown -R siseko:siseko ${{ env.SSH_DIR }}
-          sudo chown siseko:siseko ${{ env.VAULT_PASS_PATH }}
+          # Ensure correct ownership (runner is already siseko)
+          chown -R siseko:siseko ${{ env.SSH_DIR }}
+          chown siseko:siseko ${{ env.VAULT_PASS_PATH }}
 
       # Run Ansible playbook as siseko
       - name: Run Ansible Playbook (Deploy to VM)
@@ -72,14 +72,12 @@ jobs:
           ANSIBLE_HOST_KEY_CHECKING: 'False'
           HOME: ${{ env.RUNNER_HOME }}
         run: |
-          sudo -u siseko bash -c '
-            cd "$0" && \
-            ansible-playbook \
-              -i inventory.ini \
-              deploy_vm.yml \
-              --vault-password-file "$1" \
-              --private-key "$2"
-          ' "$PWD" "${{ env.VAULT_PASS_PATH }}" "${{ env.SSH_DIR }}/id_rsa"
+          cd "$PWD" && \
+          ansible-playbook \
+            -i inventory.ini \
+            deploy_vm.yml \
+            --vault-password-file "${{ env.VAULT_PASS_PATH }}" \
+            --private-key "${{ env.SSH_DIR }}/id_rsa"
 
       # Start Docker Compose on VM
       - name: Start Docker Compose on VM
