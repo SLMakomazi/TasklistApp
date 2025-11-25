@@ -24,12 +24,12 @@ jobs:
       - name: Set up environment
         run: |
           # Create target directory
-          sudo mkdir -p ${{ env.TARGET_DIR }}
-          sudo chown -R $USER:$USER ${{ env.TARGET_DIR }}
+          echo ${{ secrets.SUDO_PASSWORD }} | sudo -S mkdir -p ${{ env.TARGET_DIR }}
+          echo ${{ secrets.SUDO_PASSWORD }} | sudo -S chown -R $USER:$USER ${{ env.TARGET_DIR }}
           
           # Install required packages
-          sudo apt-get update -y
-          sudo apt-get install -y \
+          echo ${{ secrets.SUDO_PASSWORD }} | sudo -S apt-get update -y
+          echo ${{ secrets.SUDO_PASSWORD }} | sudo -S apt-get install -y \
             apt-transport-https \
             ca-certificates \
             curl \
