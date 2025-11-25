@@ -7,9 +7,7 @@ on:
   workflow_dispatch:
 
 env:
-  # Target directory on the VM
   TARGET_DIR: /opt/tasklistapp
-  # Absolute paths for runner's home directory (siseko is the runner user)
   RUNNER_HOME: /home/siseko
   SSH_DIR: /home/siseko/.ssh
   VAULT_PASS_PATH: /home/siseko/.vault_pass.txt
@@ -23,56 +21,51 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # Install Ansible and sshpass
+      # Install dependencies
       - name: Install Ansible and sshpass
         run: |
           echo "${{ secrets.SUDO_PASSWORD }}" | sudo -S apt-get update -y
           echo "${{ secrets.SUDO_PASSWORD }}" | sudo -S apt-get install -y ansible sshpass
 
-      # Create target directory and set ownership
+      # Create folder for deployment
       - name: Create Work Directory and Set Permissions
         run: |
-          echo "${{ secrets.SUDO_PASSWORD }}" | sudo -S bash -c "
-            mkdir -p ${{ env.TARGET_DIR }} && \
-            chown -R siseko:siseko ${{ env.TARGET_DIR }}
-          "
+          echo "${{ secrets.SUDO_PASSWORD }}" | sudo -S mkdir -p ${{ env.TARGET_DIR }}
+          echo "${{ secrets.SUDO_PASSWORD }}" | sudo -S chown -R siseko:siseko ${{ env.TARGET_DIR }}
 
-      # Copy Ansible files to target directory
+      # Copy ansible folder to target
       - name: Copy Ansible Files
-        run: |
-          cp -r ansible/ ${{ env.TARGET_DIR }}/
+        run: cp -r ansible/ ${{ env.TARGET_DIR }}/
 
-      # Setup SSH environment with proper permissions
+      # Configure SSH environment
       - name: Setup SSH Environment
         run: |
-          # Ensure .ssh directory exists with correct permissions
           mkdir -p ${{ env.SSH_DIR }}
           chmod 700 ${{ env.SSH_DIR }}
 
-          # Write SSH private key safely
+          # Save SSH private key
           printf "%s\n" "${{ secrets.SSH_PRIVATE_KEY }}" > ${{ env.SSH_DIR }}/id_rsa
           chmod 600 ${{ env.SSH_DIR }}/id_rsa
 
-          # Update known_hosts
+          # Add host key
           ssh-keyscan -H ${{ secrets.VM_HOST }} >> ${{ env.SSH_DIR }}/known_hosts
           chmod 644 ${{ env.SSH_DIR }}/known_hosts
 
-          # Write vault password safely
+          # Write Ansible vault password
           printf "%s\n" "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > ${{ env.VAULT_PASS_PATH }}
           chmod 600 ${{ env.VAULT_PASS_PATH }}
 
-          # Ensure correct ownership (runner is already siseko)
-          chown -R siseko:siseko ${{ env.SSH_DIR }}
-          chown siseko:siseko ${{ env.VAULT_PASS_PATH }}
+          # FIXED — requires sudo
+          echo "${{ secrets.SUDO_PASSWORD }}" | sudo -S chown -R siseko:siseko ${{ env.SSH_DIR }}
+          echo "${{ secrets.SUDO_PASSWORD }}" | sudo -S chown siseko:siseko ${{ env.VAULT_PASS_PATH }}
 
-      # Run Ansible playbook as siseko
+      # Run Ansible
       - name: Run Ansible Playbook (Deploy to VM)
         working-directory: ${{ env.TARGET_DIR }}/ansible
         env:
           ANSIBLE_HOST_KEY_CHECKING: 'False'
           HOME: ${{ env.RUNNER_HOME }}
         run: |
-          cd "$PWD" && \
           ansible-playbook \
             -i inventory.ini \
             deploy_vm.yml \
@@ -87,12 +80,12 @@ jobs:
               ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
               "cd ${{ env.TARGET_DIR }} && docker-compose up -d"
 
-      # Verify deployment
+      # Verify containers
       - name: Verify deployment on VM
         run: |
           ssh -o StrictHostKeyChecking=no \
               -i ${{ env.SSH_DIR }}/id_rsa \
               ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
               "cd ${{ env.TARGET_DIR }} && \
-              echo 'Containers:' && docker ps && \
-              echo -e '\nLogs:' && docker-compose logs --tail=20"
+               echo 'Containers:' && docker ps && \
+               echo -e '\nLogs:' && docker-compose logs --tail=20"
