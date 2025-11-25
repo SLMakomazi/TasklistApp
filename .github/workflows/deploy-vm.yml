@@ -1,4 +1,4 @@
-name: Deploy to VM
+name: Deploy Full Stack with MicroK8s and ArgoCD
 
 on:
   workflow_run:
@@ -8,103 +8,360 @@ on:
 
 env:
   TARGET_DIR: /opt/tasklistapp
-  RUNNER_HOME: /home/siseko
-  SSH_DIR: /home/siseko/.ssh
-  VAULT_PASS_PATH: /home/siseko/.vault_pass.txt
+  KUBE_CONFIG: ${{ github.workspace }}/kubeconfig
+  ARGOCD_ADMIN_PASSWORD: admin123  # Change this in production
+  NAMESPACE: tasklist
 
 jobs:
   deploy:
-    name: Deploy to Self-Hosted VM
+    name: Deploy Full Stack
     runs-on: [self-hosted, linux]
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # Wait for any apt locks to be released
-      - name: Wait for apt lock
+      - name: Set up environment
         run: |
-          timeout=300
-          echo "Checking for apt locks..."
-          while sudo fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || \
-                sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1 || \
-                sudo fuser /var/cache/apt/archives/lock >/dev/null 2>&1; do
-            echo "Waiting for apt lock to be released..."
-            sleep 5
-            timeout=$((timeout-5))
-            if [ $timeout -le 0 ]; then
-              echo "Timeout waiting for apt lock. Attempting to continue..."
-              break
-            fi
-          done
-          echo "Apt lock check complete"
+          # Create target directory
+          sudo mkdir -p ${{ env.TARGET_DIR }}
+          sudo chown -R $USER:$USER ${{ env.TARGET_DIR }}
+          
+          # Install required packages
+          sudo apt-get update -y
+          sudo apt-get install -y \
+            apt-transport-https \
+            ca-certificates \
+            curl \
+            gnupg \
+            lsb-release \
+            jq \
+            make \
+            git
 
-      # Install dependencies only if not already present
-      - name: Ensure Ansible and sshpass are installed
+      - name: Install Docker and Docker Compose
         run: |
-          if ! command -v ansible &> /dev/null || ! command -v sshpass &> /dev/null; then
-            echo "Installing Ansible and sshpass..."
-            echo "${{ secrets.SUDO_PASSWORD }}" | sudo -S apt-get update -y
-            echo "${{ secrets.SUDO_PASSWORD }}" | sudo -S apt-get install -y ansible sshpass
-          else
-            echo "Ansible and sshpass already installed"
-          fi
+          # Install Docker
+          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+          echo \
+            "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
+            $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+          
+          sudo apt-get update -y
+          sudo apt-get install -y docker-ce docker-ce-cli containerd.io
+          
+          # Install Docker Compose
+          sudo curl -L "https://github.com/docker/compose/releases/download/v2.20.2/docker-compose-$(uname -s)-$(uname -m)" \
+            -o /usr/local/bin/docker-compose
+          sudo chmod +x /usr/local/bin/docker-compose
+          
+          # Add user to docker group
+          sudo usermod -aG docker $USER
+          newgrp docker
+          
+          # Enable and start Docker
+          sudo systemctl enable docker
+          sudo systemctl start docker
 
-      # Create folder for deployment
-      - name: Create Work Directory and Set Permissions
+      - name: Install MicroK8s and required tools
         run: |
-          echo "${{ secrets.SUDO_PASSWORD }}" | sudo -S mkdir -p ${{ env.TARGET_DIR }}
-          echo "${{ secrets.SUDO_PASSWORD }}" | sudo -S chown -R siseko:siseko ${{ env.TARGET_DIR }}
+          # Install MicroK8s
+          sudo snap install microk8s --classic --channel=1.27/stable
+          
+          # Install kubectl
+          sudo snap install kubectl --classic
+          
+          # Install Helm
+          sudo snap install helm --classic
+          
+          # Install JMeter and additional tools
+          sudo apt-get update
+          sudo apt-get install -y jmeter jq tree htop
+          
+          # Add current user to microk8s group and fix permissions
+          sudo usermod -a -G microk8s $USER
+          sudo chown -f -R $USER ~/.kube
+          
+          # Enable required MicroK8s addons
+          microk8s status --wait-ready
+          microk8s enable dns storage ingress dashboard metrics-server registry
+          
+          # Wait for addons to be ready
+          microk8s kubectl wait --for=condition=available --timeout=300s deployment -n kube-system --all
+          
+          # Configure kubectl to use MicroK8s
+          mkdir -p $HOME/.kube
+          microk8s config > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+          
+          # Set up kubectl alias
+          echo 'alias kubectl="microk8s kubectl"' >> ~/.bashrc
+          source ~/.bashrc
+          
+          # Verify cluster
+          kubectl cluster-info
+          kubectl get nodes --all-namespaces
 
-      # Copy ansible folder to target
-      - name: Copy Ansible Files
-        run: cp -r ansible/ ${{ env.TARGET_DIR }}/
-
-      # Configure SSH environment
-      - name: Setup SSH Environment
+      - name: Install and Configure ArgoCD
         run: |
-          mkdir -p ${{ env.SSH_DIR }}
-          chmod 700 ${{ env.SSH_DIR }}
-
-          # Save SSH private key
-          printf "%s\n" "${{ secrets.SSH_PRIVATE_KEY }}" > ${{ env.SSH_DIR }}/id_rsa
-          chmod 600 ${{ env.SSH_DIR }}/id_rsa
-
-          # Add host key
-          ssh-keyscan -H ${{ secrets.VM_HOST }} >> ${{ env.SSH_DIR }}/known_hosts
-          chmod 644 ${{ env.SSH_DIR }}/known_hosts
-
-          # Write Ansible vault password
-          printf "%s\n" "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > ${{ env.VAULT_PASS_PATH }}
-          chmod 600 ${{ env.VAULT_PASS_PATH }}
-
-      # Run Ansible
-      - name: Run Ansible Playbook (Deploy to VM)
-        working-directory: ${{ env.TARGET_DIR }}/ansible
+          # Create namespace for ArgoCD
+          kubectl create namespace argocd || true
+          
+          # Install ArgoCD
+          kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+          
+          # Wait for ArgoCD to be ready
+          kubectl wait --for=condition=available --timeout=300s deployment -n argocd --all
+          
+          # Patch ArgoCD to use NodePort for external access
+          kubectl patch svc argocd-server -n argocd -p '{"spec": {"type": "NodePort"}}'
+          
+          # Get ArgoCD admin password
+          ARGOCD_SERVER_PASSWORD=$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d)
+          echo "ArgoCD admin password: $ARGOCD_SERVER_PASSWORD"
+          
+          # Change ArgoCD admin password
+          kubectl -n argocd patch secret argocd-secret \
+            -p '{"stringData": {
+              "admin.password": "'$(htpasswd -bnBC 10 "" ${{ env.ARGOCD_ADMIN_PASSWORD }} | tr -d ':\n')",
+              "admin.passwordMtime": "'$(date +%FT%T%Z)'"
+            }}' \
+            --type=merge
+          
+          # Expose ArgoCD server
+          ARGOCD_PORT=$(kubectl get svc argocd-server -n argocd -o jsonpath='{.spec.ports[?(@.name=="http")].nodePort}')
+          echo "ArgoCD is available at: http://$(hostname -I | awk '{print $1}'):$ARGOCD_PORT"
+          
+          # Create application namespace
+          kubectl create namespace ${{ env.NAMESPACE }} || true
+          
+          # Create ArgoCD application
+          cat <<EOF | kubectl apply -f -
+          apiVersion: argoproj.io/v1alpha1
+          kind: Application
+          metadata:
+            name: tasklist-app
+            namespace: argocd
+          spec:
+            project: default
+            source:
+              repoURL: ${{ github.server_url }}/${{ github.repository }}.git
+              targetRevision: HEAD
+              path: k8s  # Path to your Kubernetes manifests
+            destination:
+              server: https://kubernetes.default.svc
+              namespace: ${{ env.NAMESPACE }}
+            syncPolicy:
+              automated:
+                prune: true
+                selfHeal: true
+              syncOptions:
+                - CreateNamespace=true
+          EOF
+      
+      - name: Install and Configure JMeter
+        run: |
+          # JMeter is already installed, create test directory
+          mkdir -p ${{ env.TARGET_DIR }}/jmeter
+          
+          # Create a sample JMeter test plan
+          cat > ${{ env.TARGET_DIR }}/jmeter/load-test.jmx << 'EOL'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <jmeterTestPlan version="1.2" properties="5.0" jmeter="5.4.1">
+            <hashTree>
+              <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Tasklist Load Test" enabled="true">
+                <elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true">
+                  <collectionProp name="Arguments.arguments">
+                    <elementProp name="HOST" elementType="Argument">
+                      <stringProp name="Argument.name">HOST</stringProp>
+                      <stringProp name="Argument.value">localhost</stringProp>
+                      <stringProp name="Argument.desc">Server name or IP</stringProp>
+                      <stringProp name="Argument.metadata">=</stringProp>
+                    </elementProp>
+                    <elementProp name="PORT" elementType="Argument">
+                      <stringProp name="Argument.name">PORT</stringProp>
+                      <stringProp name="Argument.value">80</stringProp>
+                      <stringProp name="Argument.desc">Port number</stringProp>
+                      <stringProp name="Argument.metadata">=</stringProp>
+                    </elementProp>
+                  </collectionProp>
+                </elementProp>
+                <stringProp name="TestPlan.user_define_classpath"></stringProp>
+              </TestPlan>
+              <hashTree>
+                <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Tasklist Users" enabled="true">
+                  <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller" enabled="true">
+                    <boolProp name="LoopController.continue_forever">false</boolProp>
+                    <stringProp name="LoopController.loops">5</stringProp>
+                  </elementProp>
+                  <stringProp name="ThreadGroup.num_threads">10</stringProp>
+                  <stringProp name="ThreadGroup.ramp_time">10</stringProp>
+                  <boolProp name="ThreadGroup.scheduler">false</boolProp>
+                  <stringProp name="ThreadGroup.duration"></stringProp>
+                  <stringProp name="ThreadGroup.delay"></stringProp>
+                  <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+                </ThreadGroup>
+                <hashTree>
+                  <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Get Tasks" enabled="true">
+                    <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true">
+                      <collectionProp name="Arguments.arguments"/>
+                    </elementProp>
+                    <stringProp name="HTTPSampler.domain">${HOST}</stringProp>
+                    <stringProp name="HTTPSampler.port">${PORT}</stringProp>
+                    <stringProp name="HTTPSampler.protocol">http</stringProp>
+                    <stringProp name="HTTPSampler.path">/api/tasks</stringProp>
+                    <stringProp name="HTTPSampler.method">GET</stringProp>
+                    <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+                    <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
+                    <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+                    <boolProp name="HTTPSampler.DO_MULTIPART_POST">false</boolProp>
+                    <stringProp name="HTTPSampler.implementation">HttpClient4</stringProp>
+                    <stringProp name="HTTPSampler.connect_timeout"></stringProp>
+                    <stringProp name="HTTPSampler.response_timeout"></stringProp>
+                  </HTTPSamplerProxy>
+                  <hashTree>
+                    <ResultCollector guiclass="ViewResultsFullVisualizer" testclass="ResultCollector" testname="View Results Tree" enabled="true">
+                      <boolProp name="ResultCollector.error_logging">false</boolProp>
+                      <objProp>
+                        <name>saveConfig</name>
+                        <value class="SampleSaveConfiguration">
+                          <time>true</time>
+                          <latency>true</latency>
+                          <timestamp>true</timestamp>
+                          <success>true</success>
+                          <label>true</label>
+                          <code>true</code>
+                          <message>true</message>
+                          <threadName>true</threadName>
+                          <dataType>true</dataType>
+                          <encoding>false</encoding>
+                          <assertions>true</assertions>
+                          <subresults>true</subresults>
+                          <requestData>false</requestData>
+                          <responseData>false</responseData>
+                          <responseHeaders>false</responseHeaders>
+                          <requestHeaders>false</requestHeaders>
+                          <responseDataOnError>false</responseDataOnError>
+                          <saveAssertionResultsFailureMessage>true</saveAssertionResultsFailureMessage>
+                          <assertionsResultsToSave>0</assertionsResultsToSave>
+                          <bytes>true</bytes>
+                          <sentBytes>true</sentBytes>
+                          <url>true</url>
+                          <threadCounts>true</threadCounts>
+                          <idleTime>true</idleTime>
+                          <connectTime>true</connectTime>
+                        </value>
+                      </objProp>
+                      <stringProp name="filename"></stringProp>
+                    </ResultCollector>
+                    <hashTree/>
+                    <ResultCollector guiclass="SummaryReport" testclass="ResultCollector" testname="Summary Report" enabled="true">
+                      <boolProp name="ResultCollector.error_logging">false</boolProp>
+                      <objProp>
+                        <name>saveConfig</name>
+                        <value class="SampleSaveConfiguration">
+                          <time>true</time>
+                          <latency>true</latency>
+                          <timestamp>true</timestamp>
+                          <success>true</success>
+                          <label>true</label>
+                          <code>true</code>
+                          <message>true</message>
+                          <threadName>true</threadName>
+                          <dataType>true</dataType>
+                          <encoding>false</encoding>
+                          <assertions>true</assertions>
+                          <subresults>true</subresults>
+                          <requestData>false</requestData>
+                          <responseData>false</responseData>
+                          <responseHeaders>false</responseHeaders>
+                          <requestHeaders>false</requestHeaders>
+                          <responseDataOnError>false</responseDataOnError>
+                          <saveAssertionResultsFailureMessage>true</saveAssertionResultsFailureMessage>
+                          <assertionsResultsToSave>0</assertionsResultsToSave>
+                          <bytes>true</bytes>
+                          <sentBytes>true</sentBytes>
+                          <url>true</url>
+                          <threadCounts>true</threadCounts>
+                          <idleTime>true</idleTime>
+                          <connectTime>true</connectTime>
+                        </value>
+                      </objProp>
+                      <stringProp name="filename"></stringProp>
+                    </ResultCollector>
+                    <hashTree/>
+                  </hashTree>
+                </hashTree>
+              </hashTree>
+            </hashTree>
+          </jmeterTestPlan>
+          EOL
+          
+          echo "JMeter test plan created at ${{ env.TARGET_DIR }}/jmeter/load-test.jmx"
+          
+      - name: Build and Deploy Application
+        working-directory: ${{ github.workspace }}
         env:
-          ANSIBLE_HOST_KEY_CHECKING: 'False'
-          HOME: ${{ env.RUNNER_HOME }}
+          DOCKER_BUILDKIT: 1
         run: |
-          ansible-playbook \
-            -i inventory.ini \
-            deploy_vm.yml \
-            --vault-password-file "${{ env.VAULT_PASS_PATH }}" \
-            --private-key "${{ env.SSH_DIR }}/id_rsa"
+          # Build Docker images
+          if [ -f "docker-compose.build.yml" ]; then
+            docker-compose -f docker-compose.build.yml build
+          else
+            echo "No docker-compose.build.yml found, skipping build"
+          fi
+          
+          # If you have a container registry, push the images here
+          # docker tag app:latest your-registry/app:latest
+          # docker push your-registry/app:latest
 
-      # Start Docker Compose on VM
-      - name: Start Docker Compose on VM
+      - name: Verify Deployment
         run: |
-          ssh -o StrictHostKeyChecking=no \
-              -i ${{ env.SSH_DIR }}/id_rsa \
-              ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
-              "cd ${{ env.TARGET_DIR }} && docker-compose up -d"
+          echo "=== Kubernetes Status ==="
+          kubectl get all --all-namespaces
+          
+          echo -e "\n=== ArgoCD Status ==="
+          ARGOCD_PORT=$(kubectl get svc argocd-server -n argocd -o jsonpath='{.spec.ports[?(@.name=="http")].nodePort}')
+          ARGOCD_IP=$(hostname -I | awk '{print $1}')
+          
+          echo "ArgoCD is available at: http://$ARGOCD_IP:$ARGOCD_PORT"
+          echo "ArgoCD Username: admin"
+          echo "ArgoCD Password: ${{ env.ARGOCD_ADMIN_PASSWORD }}"
+          
+          echo -e "\n=== Application Status ==="
+          kubectl get pods,svc,ingress -n ${{ env.NAMESPACE }}
+          
+          # Get application URL
+          APP_INGRESS=$(kubectl get ingress -n ${{ env.NAMESPACE }} -o jsonpath='{.items[0].spec.rules[0].host}' 2>/dev/null || echo "")
+          if [ -z "$APP_INGRESS" ]; then
+            NODE_PORT=$(kubectl get svc -n ${{ env.NAMESPACE }} -o jsonpath='{.items[?(@.spec.type=="NodePort")].spec.ports[0].nodePort}' 2>/dev/null || echo "")
+            if [ -n "$NODE_PORT" ]; then
+              echo -e "\n=== Application URL ==="
+              echo "Application is available at: http://$ARGOCD_IP:$NODE_PORT"
+            else
+              echo -e "\n=== Application URL ==="
+              echo "Could not determine application URL. Please check the service type and ports."
+            fi
+          else
+            echo -e "\n=== Application URL ==="
+            echo "Application is available at: http://$APP_INGRESS"
+          fi
+          
+          echo -e "\n=== JMeter Test Plan ==="
+          echo "JMeter test plan is available at: ${{ env.TARGET_DIR }}/jmeter/load-test.jmx"
+          echo "Run tests with: jmeter -n -t ${{ env.TARGET_DIR }}/jmeter/load-test.jmx -l ${{ env.TARGET_DIR }}/jmeter/results.jtl -J HOST=$ARGOCD_IP -J PORT=$NODE_PORT"
 
-      # Verify containers
-      - name: Verify deployment on VM
+      - name: Save kubeconfig
+        if: always()
         run: |
-          ssh -o StrictHostKeyChecking=no \
-              -i ${{ env.SSH_DIR }}/id_rsa \
-              ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
-              "cd ${{ env.TARGET_DIR }} && \
-               echo 'Containers:' && docker ps && \
-               echo -e '\nLogs:' && docker-compose logs --tail=20"
+          mkdir -p ${{ github.workspace }}/.kube
+          cp ~/.kube/config ${{ env.KUBE_CONFIG }}
+        
+      - name: Upload kubeconfig
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: kubeconfig
+          path: ${{ env.KUBE_CONFIG }}
+          if-no-files-found: error
+          retention-days: 1
