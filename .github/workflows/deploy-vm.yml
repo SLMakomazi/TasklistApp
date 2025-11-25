@@ -42,49 +42,48 @@ jobs:
       - name: Install Docker and Docker Compose
         run: |
           # Install Docker
-          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /tmp/docker-archive-keyring.gpg
+          echo ${{ secrets.SUDO_PASSWORD }} | sudo -S cp /tmp/docker-archive-keyring.gpg /usr/share/keyrings/
           echo \
             "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
             $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
           
-          sudo apt-get update -y
-          sudo apt-get install -y docker-ce docker-ce-cli containerd.io
+          echo ${{ secrets.SUDO_PASSWORD }} | sudo -S apt-get update -y
+          echo ${{ secrets.SUDO_PASSWORD }} | sudo -S apt-get install -y docker-ce docker-ce-cli containerd.io
           
           # Install Docker Compose
-          sudo curl -L "https://github.com/docker/compose/releases/download/v2.20.2/docker-compose-$(uname -s)-$(uname -m)" \
-            -o /usr/local/bin/docker-compose
-          sudo chmod +x /usr/local/bin/docker-compose
+          curl -L "https://github.com/docker/compose/releases/download/v2.20.2/docker-compose-$(uname -s)-$(uname -m)" \
+            -o /tmp/docker-compose
+          echo ${{ secrets.SUDO_PASSWORD }} | sudo -S mv /tmp/docker-compose /usr/local/bin/
+          echo ${{ secrets.SUDO_PASSWORD }} | sudo -S chmod +x /usr/local/bin/docker-compose
           
           # Add user to docker group
-          sudo usermod -aG docker $USER
+          echo ${{ secrets.SUDO_PASSWORD }} | sudo -S usermod -aG docker $USER
           newgrp docker
           
           # Enable and start Docker
-          sudo systemctl enable docker
-          sudo systemctl start docker
+          echo ${{ secrets.SUDO_PASSWORD }} | sudo -S systemctl enable docker
+          echo ${{ secrets.SUDO_PASSWORD }} | sudo -S systemctl start docker
 
       - name: Install MicroK8s and required tools
         run: |
-          # Install MicroK8s
-          sudo snap install microk8s --classic --channel=1.27/stable
+          # Install MicroK8s and other tools with sudo password
+          echo ${{ secrets.SUDO_PASSWORD }} | sudo -S snap install microk8s --classic --channel=1.27/stable
           
           # Install kubectl
-          sudo snap install kubectl --classic
-          
-          # Install Helm
-          sudo snap install helm --classic
+          echo ${{ secrets.SUDO_PASSWORD }} | sudo -S snap install kubectl --classic
           
           # Install JMeter and additional tools
-          sudo apt-get update
-          sudo apt-get install -y jmeter jq tree htop
+          echo ${{ secrets.SUDO_PASSWORD }} | sudo -S apt-get update
+          echo ${{ secrets.SUDO_PASSWORD }} | sudo -S apt-get install -y jmeter jq tree htop
           
           # Add current user to microk8s group and fix permissions
-          sudo usermod -a -G microk8s $USER
-          sudo chown -f -R $USER ~/.kube
+          echo ${{ secrets.SUDO_PASSWORD }} | sudo -S usermod -a -G microk8s $USER
+          echo ${{ secrets.SUDO_PASSWORD }} | sudo -S chown -f -R $USER ~/.kube
           
           # Enable required MicroK8s addons
           microk8s status --wait-ready
-          microk8s enable dns storage ingress dashboard metrics-server registry
+          echo ${{ secrets.SUDO_PASSWORD }} | sudo -S microk8s enable dns storage ingress dashboard metrics-server registry
           
           # Wait for addons to be ready
           microk8s kubectl wait --for=condition=available --timeout=300s deployment -n kube-system --all
