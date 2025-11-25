@@ -21,11 +21,34 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # Install dependencies
-      - name: Install Ansible and sshpass
+      # Wait for any apt locks to be released
+      - name: Wait for apt lock
         run: |
-          echo "${{ secrets.SUDO_PASSWORD }}" | sudo -S apt-get update -y
-          echo "${{ secrets.SUDO_PASSWORD }}" | sudo -S apt-get install -y ansible sshpass
+          timeout=300
+          echo "Checking for apt locks..."
+          while sudo fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || \
+                sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1 || \
+                sudo fuser /var/cache/apt/archives/lock >/dev/null 2>&1; do
+            echo "Waiting for apt lock to be released..."
+            sleep 5
+            timeout=$((timeout-5))
+            if [ $timeout -le 0 ]; then
+              echo "Timeout waiting for apt lock. Attempting to continue..."
+              break
+            fi
+          done
+          echo "Apt lock check complete"
+
+      # Install dependencies only if not already present
+      - name: Ensure Ansible and sshpass are installed
+        run: |
+          if ! command -v ansible &> /dev/null || ! command -v sshpass &> /dev/null; then
+            echo "Installing Ansible and sshpass..."
+            echo "${{ secrets.SUDO_PASSWORD }}" | sudo -S apt-get update -y
+            echo "${{ secrets.SUDO_PASSWORD }}" | sudo -S apt-get install -y ansible sshpass
+          else
+            echo "Ansible and sshpass already installed"
+          fi
 
       # Create folder for deployment
       - name: Create Work Directory and Set Permissions
@@ -54,10 +77,6 @@ jobs:
           # Write Ansible vault password
           printf "%s\n" "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > ${{ env.VAULT_PASS_PATH }}
           chmod 600 ${{ env.VAULT_PASS_PATH }}
-
-          # FIXED — requires sudo
-          echo "${{ secrets.SUDO_PASSWORD }}" | sudo -S chown -R siseko:siseko ${{ env.SSH_DIR }}
-          echo "${{ secrets.SUDO_PASSWORD }}" | sudo -S chown siseko:siseko ${{ env.VAULT_PASS_PATH }}
 
       # Run Ansible
       - name: Run Ansible Playbook (Deploy to VM)
