@@ -90,9 +90,9 @@ spec:
               path: /actuator/health
               port: 8080
             initialDelaySeconds: 10
-            periodSeconds: 10
+            periodSeconds: 15  # Increased from 10s to 15s
             timeoutSeconds: 5
-            failureThreshold: 30
+            failureThreshold: 60 # Increased from 30 to 60 (900 seconds total check time)
           livenessProbe:
             httpGet:
               path: /actuator/health
