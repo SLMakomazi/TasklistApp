@@ -2,10 +2,9 @@ name: Deploy to Kubernetes
 
 on:
   workflow_run:
-    workflows: ["Backend CI - Build & Push Image"]
+    workflows: ["Deploy Application"]
     types:
       - completed
-    branches: [main]
   workflow_dispatch:
 
 env:
