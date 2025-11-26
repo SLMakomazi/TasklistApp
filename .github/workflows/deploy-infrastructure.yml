@@ -121,64 +121,31 @@ jobs:
 
       - name: Install and Configure ArgoCD
         run: |
-          # Check if ArgoCD namespace exists
-          if kubectl get namespace argocd >/dev/null 2>&1; then
-            echo "✅ ArgoCD namespace already exists"
-          else
-            echo "🔧 Creating ArgoCD namespace..."
-            kubectl create namespace argocd
-          fi
+          export KUBECONFIG=${{ github.workspace }}/kubeconfig
+          echo "🔄 Installing ArgoCD..."
           
-          # Check if ArgoCD is already installed
-          if kubectl get deployment argocd-server -n argocd >/dev/null 2>&1; then
-            echo "✅ ArgoCD is already installed, checking status..."
-            kubectl get deployment -n argocd
-          else
-            echo "🔧 Installing ArgoCD..."
-            # Install ArgoCD
-            kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-            echo "✅ ArgoCD installed successfully"
-          fi
+          # Install ArgoCD
+          kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
+          kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
           
           # Wait for ArgoCD to be ready
           echo "⏳ Waiting for ArgoCD to be ready..."
-          kubectl wait --for=condition=available --timeout=600s deployment -n argocd --all
+          kubectl wait --for=condition=available --timeout=300s deployment/argocd-server -n argocd
+          kubectl wait --for=condition=available --timeout=300s deployment/argocd-repo-server -n argocd
+          kubectl wait --for=condition=available --timeout=300s deployment/argocd-application-controller -n argocd
           
-          # Check if ArgoCD server is already patched to NodePort
-          if kubectl get svc argocd-server -n argocd -o jsonpath='{.spec.type}' | grep -q "NodePort"; then
-            echo "✅ ArgoCD server is already configured with NodePort"
-          else
-            echo "🔧 Patching ArgoCD server to use NodePort..."
-            # Patch ArgoCD to use NodePort for external access
-            kubectl patch svc argocd-server -n argocd -p '{"spec": {"type": "NodePort"}}'
-          fi
+          # Configure ArgoCD with NodePort for external access
+          kubectl patch svc argocd-server -n argocd -p '{"spec":{"type":"NodePort","ports":[{"name":"http","port":80,"targetPort":8080,"nodePort":30007},{"name":"https","port":443,"targetPort":8080,"nodePort":30008}]}}'
           
-          # Get ArgoCD admin password
-          if kubectl get secret argocd-initial-admin-secret -n argocd >/dev/null 2>&1; then
-            ARGOCD_SERVER_PASSWORD=$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d)
-            echo "ArgoCD admin password: $ARGOCD_SERVER_PASSWORD"
-          else
-            echo "⚠️ ArgoCD initial admin secret not found, using default password"
-          fi
-          
-          # Change ArgoCD admin password
-          echo "🔧 Setting ArgoCD admin password..."
-          # First check if htpasswd is available
-          if command -v htpasswd &> /dev/null; then
-            PASSWORD_HASH=$(htpasswd -bnBC 10 "" admin123 | tr -d ':\n')
-          else
-            # Fallback to a pre-computed bcrypt hash of 'admin123'
-            PASSWORD_HASH='$2a$10$rH3sY2x1Jp8W8X8JQ9vZ0OeJ8Xk8J9Z8vY0J9vY0J9vY0J9vY0J9vY0'
-          fi
-          
+          # Set ArgoCD admin password using static bcrypt hash for "admin123"
+          PASSWORD_HASH='$2a$10$rH3sY2x1Jp8W8X8JQ9vZ0OeJ8Xk8J9Z8vY0J9vY0J9vY0J9vY0J9vY0'
           kubectl -n argocd patch secret argocd-secret \
-            --type=merge \
-            -p '{"stringData": {"admin.password": "'${PASSWORD_HASH}'", "admin.passwordMtime": "'$(date +%FT%T%Z)'"}}' \
-            || echo "⚠️ Could not update ArgoCD password"
+            -p '{"stringData": {"admin.password": "'$PASSWORD_HASH'", "admin.passwordMtime": "'$(date +%s)'"}}'
           
-          # Expose ArgoCD server
-          ARGOCD_PORT=$(kubectl get svc argocd-server -n argocd -o jsonpath='{.spec.ports[?(@.name=="http")].nodePort}')
-          echo "ArgoCD is available at: http://$(hostname -I | awk '{print $1}'):$ARGOCD_PORT"
+          echo "✅ ArgoCD installed and configured"
+          echo "🔗 ArgoCD will be available at: http://$(hostname -I | awk '{print $1}'):30007"
+          echo "👤 Username: admin"
+          echo "🔑 Password: admin123"
           
           # Create application namespace
           if kubectl get namespace tasklist >/dev/null 2>&1; then

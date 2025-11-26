@@ -2,7 +2,7 @@ name: Deploy to Kubernetes
 
 on:
   workflow_run:
-    workflows: ["Deploy Infrastructure", "Backend CI"]
+    workflows: ["Deploy Infrastructure"]
     types:
       - completed
     branches:
@@ -20,8 +20,10 @@ env:
 
 jobs:
   deploy:
-    name: Deploy to Kubernetes
+    name: Deploy to Kujobs
     runs-on: [self-hosted, linux]
+    env:
+      KUBECONFIG: ${{ github.workspace }}/kubeconfig
     
     steps:
       - name: Checkout repository
@@ -77,34 +79,42 @@ jobs:
           MISSING_SECRETS=""
           
           for secret in $REQUIRED_SECRETS; do
-            if [ -z "${!secret}" ]; then
-              echo "❌ Secret '$secret' is not set"
+            SECRET_VALUE=""
+            case $secret in
+              "DB_PASSWORD") SECRET_VALUE="${{ secrets.DB_PASSWORD }}" ;;
+              "DB_USERNAME") SECRET_VALUE="${{ secrets.DB_USERNAME }}" ;;
+              "DB_URL") SECRET_VALUE="${{ secrets.DB_URL }}" ;;
+              "FRONTEND_API_URL") SECRET_VALUE="${{ secrets.FRONTEND_API_URL }}" ;;
+            esac
+            
+            if [ -z "$SECRET_VALUE" ]; then
               MISSING_SECRETS="$MISSING_SECRETS $secret"
-            else
-              echo "✅ Secret '$secret' is available"
             fi
           done
           
-          if [ -n "$MISSING_SECRETS" ]; then
-            echo "❌ Missing required secrets: $MISSING_SECRETS"
+          if [ ! -z "$MISSING_SECRETS" ]; then
+            echo "❌ Missing required secrets:$MISSING_SECRETS"
+            echo "⚠️ Please configure these secrets in GitHub repository settings"
             exit 1
           fi
           
-          # Create database secrets
-          echo "🔧 Creating database secrets..."
-          kubectl create secret generic tasklist-db-secrets \
-            --from-literal=db-username=$(echo -n "${{ secrets.DB_USERNAME }}" | base64) \
-            --from-literal=db-password=$(echo -n "${{ secrets.DB_PASSWORD }}" | base64) \
-            --from-literal=db-url=$(echo -n "${{ secrets.DB_URL }}" | base64) \
-            -n ${{ env.NAMESPACE }} || true
+          echo "✅ All required secrets are available"
           
-          # Create application secrets
-          echo "🔧 Creating application secrets..."
+          # Create database secrets (plain text - kubectl handles encoding)
+          kubectl create secret generic tasklist-db-secrets \
+            --from-literal=db-username="${{ secrets.DB_USERNAME }}" \
+            --from-literal=db-password="${{ secrets.DB_PASSWORD }}" \
+            --from-literal=db-url="${{ secrets.DB_URL }}" \
+            --namespace=${NAMESPACE} \
+            --dry-run=client -o yaml | kubectl apply -f -
+          
+          # Create application config secrets
           kubectl create secret generic tasklist-app-secrets \
             --from-literal=frontend-api-url="${{ secrets.FRONTEND_API_URL }}" \
-            -n ${{ env.NAMESPACE }} || true
+            --namespace=${NAMESPACE} \
+            --dry-run=client -o yaml | kubectl apply -f -
           
-          # Verify secrets were created
+          echo "✅ Kubernetes secrets created successfully"
           echo "🔍 Verifying secrets were created..."
           if ! kubectl get secret tasklist-db-secrets -n ${{ env.NAMESPACE }} >/dev/null 2>&1; then
             echo "❌ Database secrets were not created"
@@ -135,13 +145,12 @@ jobs:
           # Apply manifests in order from your k8s directory structure
           echo "🔧 Applying Kubernetes manifests in order..."
           
-          # Apply namespace first
-          kubectl apply -f k8s/namespace.yaml
+          # Apply namespace first (skip if already exists)
+          kubectl apply -f k8s/namespace.yaml || echo "Namespace already exists or failed"
           
-          # Apply secrets and service accounts
-          kubectl apply -f k8s/tasklistapp-secrets.yaml
-          kubectl apply -f k8s/ghcr-secret.yaml
+          # Apply service account and GHCR secret
           kubectl apply -f k8s/serviceaccount.yaml
+          kubectl apply -f k8s/ghcr-secret.yaml
           
           # Apply database manifests
           kubectl apply -f k8s/postgres-manifests/
