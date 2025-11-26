@@ -54,7 +54,7 @@ spec:
               memory: "512Mi"
               cpu: "500m"
           env:
-            # 1. Inject DB credentials directly from the Secret
+            # 1. Inject DB credentials from tasklistapp-secrets (Matches Postgres setup)
             - name: DB_USERNAME
               valueFrom:
                 secretKeyRef:
@@ -65,14 +65,20 @@ spec:
                 secretKeyRef:
                   name: tasklistapp-secrets
                   key: db-password
-            # 2. Set the host directly using the Kubernetes Service Name
+            
+            # 2. Inject DB_HOST and DB_NAME from the tasklistapi-secrets (The one that has these keys)
             - name: DB_HOST
-              value: postgresdb-service
-            # 3. Set the database name directly
+              valueFrom:
+                secretKeyRef:
+                  name: tasklistapi-secrets
+                  key: DB_HOST
             - name: DB_NAME
-              value: tasklistdb
+              valueFrom:
+                secretKeyRef:
+                  name: tasklistapi-secrets
+                  key: DB_NAME
 
-          # 4. Load the rest of the ConfigMap variables using envFrom
+          # 3. Load the rest of the ConfigMap variables using envFrom
           envFrom:
             - configMapRef:
                 name: tasklistapi-config
