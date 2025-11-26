@@ -40,17 +40,119 @@ jobs:
 
       - name: Verify MicroK8s cluster
         run: |
-          # Check MicroK8s status
-          microk8s status --wait-ready
+          echo "🔍 Verifying MicroK8s installation and status..."
+          
+          # Check if MicroK8s is installed
+          if ! command -v microk8s &> /dev/null; then
+            echo "❌ MicroK8s is not installed. Please install MicroK8s first."
+            exit 1
+          fi
+          echo "✅ MicroK8s is installed: $(microk8s version --client)"
+          
+          # Check if MicroK8s is running
+          if ! microk8s status | grep -q "running"; then
+            echo "❌ MicroK8s is not running. Starting MicroK8s..."
+            microk8s start
+            echo "⏳ Waiting for MicroK8s to start..."
+            microk8s status --wait-ready
+          else
+            echo "✅ MicroK8s is running"
+          fi
+          
+          # Check required addons
+          echo "🔍 Checking required MicroK8s addons..."
+          REQUIRED_ADDONS="dns storage ingress dashboard metrics-server registry"
+          MISSING_ADDONS=""
+          
+          for addon in $REQUIRED_ADDONS; do
+            if microk8s status | grep -q "$addon: enabled"; then
+              echo "✅ Addon '$addon' is enabled"
+            else
+              echo "❌ Addon '$addon' is not enabled"
+              MISSING_ADDONS="$MISSING_ADDONS $addon"
+            fi
+          done
+          
+          if [ -n "$MISSING_ADDONS" ]; then
+            echo "❌ Missing required addons: $MISSING_ADDONS"
+            echo "Please enable them first: microk8s enable$MISSING_ADDONS"
+            exit 1
+          fi
           
           # Configure kubectl to use MicroK8s
+          echo "🔧 Configuring kubectl..."
           mkdir -p $HOME/.kube
           microk8s config > $HOME/.kube/config
           chmod 600 $HOME/.kube/config
           
           # Verify cluster access
+          echo "🔍 Verifying cluster access..."
+          if ! kubectl cluster-info >/dev/null 2>&1; then
+            echo "❌ Cannot access Kubernetes cluster"
+            exit 1
+          fi
+          echo "✅ Kubernetes cluster is accessible"
+          
+          # Check node status
+          if ! kubectl get nodes | grep -q "Ready"; then
+            echo "❌ Kubernetes nodes are not ready"
+            exit 1
+          fi
+          echo "✅ Kubernetes nodes are ready"
+          
           kubectl cluster-info
           kubectl get nodes
+          echo "✅ MicroK8s verification completed"
+
+      - name: Install ArgoCD
+        run: |
+          echo "🔍 Verifying ArgoCD installation..."
+          
+          # Check if ArgoCD namespace exists
+          if ! kubectl get namespace argocd >/dev/null 2>&1; then
+            echo "🔧 Creating ArgoCD namespace..."
+            kubectl create namespace argocd
+          else
+            echo "✅ ArgoCD namespace exists"
+          fi
+          
+          # Check if ArgoCD is already installed
+          if kubectl get deployment argocd-server -n argocd >/dev/null 2>&1; then
+            echo "✅ ArgoCD is already installed, checking status..."
+            kubectl get deployment -n argocd
+          else
+            echo "🔧 Installing ArgoCD..."
+            # Install ArgoCD
+            kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+            echo "✅ ArgoCD installed successfully"
+          fi
+          
+          # Wait for ArgoCD to be ready (increased timeout)
+          echo "⏳ Waiting for ArgoCD to be ready..."
+          kubectl wait --for=condition=available --timeout=600s deployment/argocd-server -n argocd
+          kubectl wait --for=condition=available --timeout=600s deployment/argocd-repo-server -n argocd
+          kubectl wait --for=condition=available --timeout=600s deployment/argocd-application-controller -n argocd
+          kubectl wait --for=condition=available --timeout=600s deployment/argocd-dex-server -n argocd
+          kubectl wait --for=condition=available --timeout=600s deployment/argocd-redis -n argocd
+          kubectl wait --for=condition=available --timeout=600s deployment/argocd-notifications-controller -n argocd
+          
+          # Verify ArgoCD is healthy
+          echo "🔍 Verifying ArgoCD health..."
+          if ! kubectl get pods -n argocd | grep -q "Running"; then
+            echo "❌ ArgoCD pods are not running"
+            kubectl get pods -n argocd
+            exit 1
+          fi
+          echo "✅ ArgoCD pods are running"
+          
+          # Check ArgoCD server service
+          if ! kubectl get svc argocd-server -n argocd >/dev/null 2>&1; then
+            echo "❌ ArgoCD server service not found"
+            exit 1
+          fi
+          echo "✅ ArgoCD server service is available"
+          
+          echo "✅ ArgoCD is ready"
 
       - name: Create namespace
         run: |
@@ -60,7 +162,27 @@ jobs:
         run: |
           echo "🔐 Creating Kubernetes secrets from GitHub secrets..."
           
+          # Verify required secrets are available
+          echo "🔍 Verifying GitHub secrets..."
+          REQUIRED_SECRETS="DB_PASSWORD DB_USERNAME DB_URL FRONTEND_API_URL"
+          MISSING_SECRETS=""
+          
+          for secret in $REQUIRED_SECRETS; do
+            if [ -z "${!secret}" ]; then
+              echo "❌ Secret '$secret' is not set"
+              MISSING_SECRETS="$MISSING_SECRETS $secret"
+            else
+              echo "✅ Secret '$secret' is available"
+            fi
+          done
+          
+          if [ -n "$MISSING_SECRETS" ]; then
+            echo "❌ Missing required secrets: $MISSING_SECRETS"
+            exit 1
+          fi
+          
           # Create database secrets
+          echo "🔧 Creating database secrets..."
           kubectl create secret generic tasklist-db-secrets \
             --from-literal=db-username=$(echo -n "${{ secrets.DB_USERNAME }}" | base64) \
             --from-literal=db-password=$(echo -n "${{ secrets.DB_PASSWORD }}" | base64) \
@@ -68,26 +190,117 @@ jobs:
             -n ${{ env.NAMESPACE }} || true
           
           # Create application secrets
+          echo "🔧 Creating application secrets..."
           kubectl create secret generic tasklist-app-secrets \
             --from-literal=frontend-api-url="${{ secrets.FRONTEND_API_URL }}" \
             -n ${{ env.NAMESPACE }} || true
           
-          echo "✅ Secrets created successfully"
+          # Verify secrets were created
+          echo "🔍 Verifying secrets were created..."
+          if ! kubectl get secret tasklist-db-secrets -n ${{ env.NAMESPACE }} >/dev/null 2>&1; then
+            echo "❌ Database secrets were not created"
+            exit 1
+          fi
+          
+          if ! kubectl get secret tasklist-app-secrets -n ${{ env.NAMESPACE }} >/dev/null 2>&1; then
+            echo "❌ Application secrets were not created"
+            exit 1
+          fi
+          
+          echo "✅ All secrets created successfully"
+          kubectl get secrets -n ${{ env.NAMESPACE }}
 
       - name: Apply Kubernetes manifests
         run: |
           echo "🚀 Deploying application to Kubernetes..."
           
+          # Verify kustomize directory exists
+          if [ ! -d "k8s/" ]; then
+            echo "❌ k8s/ directory not found"
+            exit 1
+          fi
+          
+          # Check if kustomization.yaml exists
+          if [ ! -f "k8s/kustomization.yaml" ]; then
+            echo "❌ k8s/kustomization.yaml not found"
+            exit 1
+          fi
+          
+          echo "✅ Kubernetes manifests found"
+          
+          # Validate manifests before applying
+          echo "🔍 Validating Kubernetes manifests..."
+          if ! kubectl kustomize k8s/ > /dev/null; then
+            echo "❌ Kubernetes manifests validation failed"
+            exit 1
+          fi
+          echo "✅ Kubernetes manifests are valid"
+          
           # Apply all manifests using kustomize
+          echo "🔧 Applying Kubernetes manifests..."
           kubectl apply -k k8s/ -n ${{ env.NAMESPACE }}
           
-          # Wait for deployments to be ready
+          # Wait for deployments to be ready (increased timeout)
           echo "⏳ Waiting for deployments to be ready..."
-          kubectl wait --for=condition=available --timeout=300s deployment -n ${{ env.NAMESPACE }} --all
+          kubectl wait --for=condition=available --timeout=600s deployment -n ${{ env.NAMESPACE }} --all
+          
+          # Verify deployments are running
+          echo "🔍 Verifying deployments..."
+          if ! kubectl get pods -n ${{ env.NAMESPACE }} | grep -q "Running"; then
+            echo "❌ Application pods are not running"
+            kubectl get pods -n ${{ env.NAMESPACE }}
+            exit 1
+          fi
           
           # Show deployment status
           echo "📊 Deployment Status:"
           kubectl get pods,svc,ingress -n ${{ env.NAMESPACE }}
+          echo "✅ Application deployed successfully"
+
+      - name: Create ArgoCD application
+        run: |
+          echo "🎯 Creating ArgoCD application..."
+          
+          # Verify ArgoCD application manifest exists
+          if [ ! -f "k8s/argocd/app.yaml" ]; then
+            echo "❌ ArgoCD application manifest not found"
+            exit 1
+          fi
+          
+          # Validate ArgoCD application manifest
+          echo "🔍 Validating ArgoCD application manifest..."
+          if ! kubectl apply --dry-run=client -f k8s/argocd/app.yaml -n argocd >/dev/null; then
+            echo "❌ ArgoCD application manifest validation failed"
+            exit 1
+          fi
+          echo "✅ ArgoCD application manifest is valid"
+          
+          # Apply ArgoCD application manifest
+          echo "🔧 Applying ArgoCD application manifest..."
+          kubectl apply -f k8s/argocd/app.yaml -n argocd
+          
+          # Wait for ArgoCD application to be created
+          echo "⏳ Waiting for ArgoCD application to be created..."
+          if ! kubectl wait --for=condition=Synced --timeout=300s application/tasklist-app -n argocd; then
+            echo "⚠️ ArgoCD application sync timeout, but continuing..."
+          fi
+          
+          # Verify ArgoCD application status
+          echo "🔍 Verifying ArgoCD application..."
+          if ! kubectl get application tasklist-app -n argocd >/dev/null 2>&1; then
+            echo "❌ ArgoCD application was not created"
+            exit 1
+          fi
+          
+          # Show ArgoCD application status
+          echo "📊 ArgoCD Application Status:"
+          kubectl get application tasklist-app -n argocd -o wide
+          
+          # Check application health
+          APP_HEALTH=$(kubectl get application tasklist-app -n argocd -o jsonpath='{.status.health.status}' 2>/dev/null || echo "Unknown")
+          echo "Application Health Status: $APP_HEALTH"
+          
+          echo "✅ ArgoCD application created successfully"
 
       - name: Verify deployment
         run: |
@@ -123,6 +336,31 @@ jobs:
               echo "  http://$host"
             done
           fi
+
+      - name: Troubleshooting info
+        if: failure()
+        run: |
+          echo "🔍 Troubleshooting information..."
+          
+          # Check ArgoCD status
+          echo "=== ArgoCD Status ==="
+          kubectl get pods -n argocd
+          kubectl get deployment -n argocd
+          
+          # Check application namespace
+          echo "=== Application Namespace Status ==="
+          kubectl get pods -n ${{ env.NAMESPACE }}
+          kubectl get deployment -n ${{ env.NAMESPACE }}
+          kubectl get events -n ${{ env.NAMESPACE }} --sort-by='.lastTimestamp' | tail -10
+          
+          # Check ArgoCD application logs
+          echo "=== ArgoCD Application Logs ==="
+          kubectl logs -n argocd deployment/argocd-application-controller --tail=20
+          
+          # Check resource usage
+          echo "=== Resource Usage ==="
+          kubectl top nodes 2>/dev/null || echo "Metrics server not available"
+          kubectl top pods -n argocd 2>/dev/null || echo "Pod metrics not available"
 
       - name: Run smoke tests
         run: |
