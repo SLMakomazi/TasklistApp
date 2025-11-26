@@ -180,57 +180,43 @@ jobs:
           ARGOCD_PORT=$(kubectl get svc argocd-server -n argocd -o jsonpath='{.spec.ports[?(@.name=="http")].nodePort}')
           echo "ArgoCD is available at: http://$(hostname -I | awk '{print $1}'):$ARGOCD_PORT"
           
-          # Create application namespace
-          if kubectl get namespace tasklist >/dev/null 2>&1; then
-            echo "✅ Application namespace already exists"
-          else
-            echo "🔧 Creating application namespace..."
-            kubectl create namespace tasklist
-          fi
+          # Apply all Kubernetes manifests from k8s directory
+          echo "🔧 Applying Kubernetes manifests..."
           
-          # Check if ArgoCD application already exists
-          if kubectl get application tasklist-app -n argocd >/dev/null 2>&1; then
-            echo "✅ ArgoCD application already exists"
-          else
-            echo "🔧 Creating ArgoCD application..."
-            cat <<EOF | kubectl apply -f -
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-metadata:
-  name: tasklist-app
-  namespace: argocd
-spec:
-  project: default
-  source:
-    repoURL: ${{ github.server_url }}/${{ github.repository }}.git
-    targetRevision: HEAD
-    path: k8s
-  destination:
-    server: https://kubernetes.default.svc
-    namespace: tasklist
-  syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
-    syncOptions:
-      - CreateNamespace=true
-EOF
-            echo "✅ ArgoCD application created"
-          fi
+          # Apply namespace first
+          kubectl apply -f k8s/namespace.yaml
+          
+          # Apply secrets and service accounts
+          kubectl apply -f k8s/tasklistapp-secrets.yaml
+          kubectl apply -f k8s/ghcr-secret.yaml
+          kubectl apply -f k8s/serviceaccount.yaml
+          
+          # Apply database manifests
+          kubectl apply -f k8s/postgres-manifests/
+          
+          # Apply API manifests
+          kubectl apply -f k8s/api-manifests/
+          
+          # Apply frontend manifests
+          kubectl apply -f k8s/frontend-manifests/
+          
+          # Apply ingress configurations
+          kubectl apply -f k8s/ingress/
+          
+          # Apply monitoring configurations
+          kubectl apply -f k8s/monitoring/
+          
+          # Apply microk8s specific configurations
+          kubectl apply -f k8s/microk8s-hostpath-immediate.yaml
+          
+          echo "✅ Kubernetes manifests applied"
+          
+          # Deploy ArgoCD applications from k8s/argocd directory
+          echo "🔧 Deploying ArgoCD applications..."
+          kubectl apply -f k8s/argocd/
+          
+          # Wait for ArgoCD to be ready
+          echo "⏳ Waiting for ArgoCD to be ready..."
+          kubectl wait --for=condition=available --timeout=300s deployment -n argocd --all
           
           echo "✅ ArgoCD setup completed"
-
-      - name: Save kubeconfig
-        if: always()
-        run: |
-          mkdir -p ${{ github.workspace }}/.kube
-          cp ~/.kube/config ${{ github.workspace }}/kubeconfig
-
-      - name: Upload kubeconfig
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: kubeconfig
-          path: ${{ github.workspace }}/kubeconfig
-          if-no-files-found: error
-          retention-days: 1
