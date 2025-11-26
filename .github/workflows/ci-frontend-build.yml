@@ -7,7 +7,7 @@ on:
       - completed
   workflow_dispatch:  # Allows manual triggering
 
-# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Packages
+# Sets ss permissions of the GITHUB_TOKEN to allow deployment to GitHub Packages
 permissions:
   contents: read
   packages: write
