@@ -25,6 +25,9 @@ spec:
       maxUnavailable: 0
   template:
     metadata:
+      annotations:
+        # Force Kubernetes to recreate pods with new configuration
+        kubectl.kubernetes.io/restartedAt: "2025-11-26T17:45:00+00:00"
       labels:
         app: tasklistapi
         tier: backend
