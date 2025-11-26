@@ -57,6 +57,8 @@ spec:
         volumeMounts:
         - name: postgres-storage
           mountPath: /var/lib/postgresql/data
+        - name: tasklist-logs
+          mountPath: /opt/tasklist/logs
         livenessProbe:
           exec:
             command:
@@ -90,6 +92,8 @@ spec:
       - name: postgres-storage
         persistentVolumeClaim:
           claimName: postgresdb-pvc
+      - name: tasklist-logs
+        emptyDir: {}
 
       # THIS tells Kubernetes how to pull your GHCR image
       imagePullSecrets:
