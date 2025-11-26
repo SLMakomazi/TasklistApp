@@ -172,11 +172,46 @@ jobs:
             fi
           done
           
-          # Now wait for deployments to be ready
+          # Check if deployment exists after waiting
+          if ! kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig get deployment argocd-application-controller -n argocd >/dev/null 2>&1; then
+            echo "❌ argocd-application-controller deployment not found after waiting"
+            echo "🔍 Troubleshooting information:"
+            echo "Available deployments in argocd namespace:"
+            kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig get deployments -n argocd || echo "No deployments found"
+            echo "All resources in argocd namespace:"
+            kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig get all -n argocd || echo "No resources found"
+            echo "Pods in argocd namespace:"
+            kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig get pods -n argocd || echo "No pods found"
+            echo "Events in argocd namespace:"
+            kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig get events -n argocd --sort-by='.lastTimestamp' || echo "No events found"
+            exit 1
+          fi
+          
+          # Now wait for deployments to be ready with timeout
           echo "🔍 Waiting for deployments to be ready..."
-          kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig wait --for=condition=available deployment/argocd-server -n argocd --timeout=300s
-          kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig wait --for=condition=available deployment/argocd-repo-server -n argocd --timeout=300s
-          kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig wait --for=condition=available deployment/argocd-application-controller -n argocd --timeout=300s
+          kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig wait --for=condition=available deployment/argocd-server -n argocd --timeout=300s || {
+            echo "❌ argocd-server failed to become available"
+            kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig describe deployment argocd-server -n argocd
+            kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig get pods -n argocd -l app.kubernetes.io/name=argocd-server
+            kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig logs -n argocd -l app.kubernetes.io/name=argocd-server --tail=20
+            exit 1
+          }
+          
+          kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig wait --for=condition=available deployment/argocd-repo-server -n argocd --timeout=300s || {
+            echo "❌ argocd-repo-server failed to become available"
+            kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig describe deployment argocd-repo-server -n argocd
+            kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig get pods -n argocd -l app.kubernetes.io/name=argocd-repo-server
+            kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig logs -n argocd -l app.kubernetes.io/name=argocd-repo-server --tail=20
+            exit 1
+          }
+          
+          kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig wait --for=condition=available deployment/argocd-application-controller -n argocd --timeout=300s || {
+            echo "❌ argocd-application-controller failed to become available"
+            kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig describe deployment argocd-application-controller -n argocd
+            kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig get pods -n argocd -l app.kubernetes.io/name=argocd-application-controller
+            kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig logs -n argocd -l app.kubernetes.io/name=argocd-application-controller --tail=20
+            exit 1
+          }
           
           # Configure ArgoCD with NodePort for external access
           kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig patch svc argocd-server -n argocd -p '{"spec":{"type":"NodePort","ports":[{"name":"http","port":80,"targetPort":8080,"nodePort":30007},{"name":"https","port":443,"targetPort":8080,"nodePort":30008}]}}'
