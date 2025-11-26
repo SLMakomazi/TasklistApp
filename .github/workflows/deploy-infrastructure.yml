@@ -116,30 +116,58 @@ jobs:
             echo 'alias kubectl="microk8s kubectl"' >> ~/.bashrc
           fi
           source ~/.bashrc
-          kubectl cluster-info
-          kubectl get nodes --all-namespaces
+          microk8s kubectl cluster-info
+          microk8s kubectl get nodes --all-namespaces
+
+      - name: Generate Fixed Kubeconfig
+        run: |
+          echo "🔧 Generating fixed kubeconfig with localhost..."
+          
+          # Generate kubeconfig to fixed location
+          microk8s config > /home/siseko/microk8s-kubeconfig
+          
+          # Force server to localhost (stable, never changes)
+          sed -i 's|server: https://.*:16443|server: https://127.0.0.1:16443|' /home/siseko/microk8s-kubeconfig
+          
+          # Verify the change
+          echo "✅ Kubeconfig server address:"
+          grep server /home/siseko/microk8s-kubeconfig
+          
+          # Set proper permissions
+          chmod 644 /home/siseko/microk8s-kubeconfig
+          
+          # Copy to workspace for artifact upload
+          cp /home/siseko/microk8s-kubeconfig ${{ github.workspace }}/kubeconfig
+        
+      - name: Test Fixed Kubeconfig Connection
+        run: |
+          echo "🔍 Testing fixed kubeconfig connection..."
+          
+          # Test connection using fixed path
+          kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig get nodes
+          kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig cluster-info
+          echo "✅ Fixed kubeconfig connection successful"
 
       - name: Install and Configure ArgoCD
         run: |
-          export KUBECONFIG=${{ github.workspace }}/kubeconfig
           echo "🔄 Installing ArgoCD..."
           
-          # Install ArgoCD
-          kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
-          kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+          # Install ArgoCD using fixed kubeconfig
+          kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig create namespace argocd --dry-run=client -o yaml | kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig apply -f -
+          kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
           
           # Wait for ArgoCD to be ready
           echo "⏳ Waiting for ArgoCD to be ready..."
-          kubectl wait --for=condition=available --timeout=300s deployment/argocd-server -n argocd
-          kubectl wait --for=condition=available --timeout=300s deployment/argocd-repo-server -n argocd
-          kubectl wait --for=condition=available --timeout=300s deployment/argocd-application-controller -n argocd
+          kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig wait --for=condition=available --timeout=300s deployment/argocd-server -n argocd
+          kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig wait --for=condition=available --timeout=300s deployment/argocd-repo-server -n argocd
+          kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig wait --for=condition=available --timeout=300s deployment/argocd-application-controller -n argocd
           
           # Configure ArgoCD with NodePort for external access
-          kubectl patch svc argocd-server -n argocd -p '{"spec":{"type":"NodePort","ports":[{"name":"http","port":80,"targetPort":8080,"nodePort":30007},{"name":"https","port":443,"targetPort":8080,"nodePort":30008}]}}'
+          kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig patch svc argocd-server -n argocd -p '{"spec":{"type":"NodePort","ports":[{"name":"http","port":80,"targetPort":8080,"nodePort":30007},{"name":"https","port":443,"targetPort":8080,"nodePort":30008}]}}'
           
           # Set ArgoCD admin password using static bcrypt hash for "admin123"
           PASSWORD_HASH='$2a$10$rH3sY2x1Jp8W8X8JQ9vZ0OeJ8Xk8J9Z8vY0J9vY0J9vY0J9vY0J9vY0'
-          kubectl -n argocd patch secret argocd-secret \
+          kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig -n argocd patch secret argocd-secret \
             -p '{"stringData": {"admin.password": "'$PASSWORD_HASH'", "admin.passwordMtime": "'$(date +%s)'"}}'
           
           echo "✅ ArgoCD installed and configured"
@@ -148,48 +176,51 @@ jobs:
           echo "🔑 Password: admin123"
           
           # Create application namespace
-          if kubectl get namespace tasklist >/dev/null 2>&1; then
+          if kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig get namespace tasklist >/dev/null 2>&1; then
             echo "✅ Application namespace already exists"
           else
             echo "🔧 Creating application namespace..."
-            kubectl create namespace tasklist
+            kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig create namespace tasklist
           fi
           
           echo "✅ Infrastructure setup completed"
 
-      - name: Generate stable kubeconfig
+      - name: Create ArgoCD Application
         run: |
-          echo "🔧 Generating stable kubeconfig with localhost..."
+          echo "🎯 Creating ArgoCD application for tasklist-app..."
           
-          # Generate kubeconfig
-          microk8s config > ~/microk8s-kubeconfig
+          # Apply ArgoCD application manifest with fixed kubeconfig
+          kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig apply -f - << 'EOF'
+          apiVersion: argoproj.io/v1alpha1
+          kind: Application
+          metadata:
+            name: tasklist-app
+            namespace: argocd
+          spec:
+            project: default
+            source:
+              repoURL: https://github.com/SLMakomazi/TasklistApp.git
+              targetRevision: HEAD
+              path: k8s
+            destination:
+              server: https://kubernetes.default.svc
+              namespace: tasklist
+            syncPolicy:
+              automated:
+                prune: true
+                selfHeal: true
+              syncOptions:
+                - CreateNamespace=true
+          EOF
           
-          # Force server to localhost (stable, never changes)
-          sed -i 's|server: https://.*:16443|server: https://127.0.0.1:16443|' ~/microk8s-kubeconfig
-          
-          # Verify the change
-          echo "✅ Kubeconfig server address:"
-          grep server ~/microk8s-kubeconfig
-          
-          # Copy to workspace for artifact upload
-          cp ~/microk8s-kubeconfig ${{ github.workspace }}/kubeconfig
-          chmod 644 ${{ github.workspace }}/kubeconfig
-        
-      - name: Test kubeconfig connection
-        run: |
-          echo "🔍 Testing kubeconfig connection..."
-          export KUBECONFIG=${{ github.workspace }}/kubeconfig
-          
-          # Test connection
-          kubectl get nodes
-          kubectl cluster-info
-          echo "✅ Kubeconfig connection successful"
-        
+          echo "✅ ArgoCD application created"
+          echo "🔗 ArgoCD will automatically sync the k8s directory"
+
       - name: Upload kubeconfig
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: kubeconfig
-          path: ${{ github.workspace }}/kubeconfig
+          path: /home/siseko/microk8s-kubeconfig
           if-no-files-found: error
           retention-days: 1
