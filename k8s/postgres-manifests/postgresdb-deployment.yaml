@@ -54,6 +54,8 @@ spec:
           value: /var/lib/postgresql/data/pgdata
         - name: POSTGRES_INITDB_ARGS
           value: "--data-checksums"
+        - name: SERVER_PORT
+          value: "5432"
         volumeMounts:
         - name: postgres-storage
           mountPath: /var/lib/postgresql/data
