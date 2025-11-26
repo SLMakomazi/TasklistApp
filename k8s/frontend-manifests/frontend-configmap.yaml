@@ -13,7 +13,7 @@ metadata:
     app.kubernetes.io/managed-by: argocd
 data:
   # The internal API endpoint (ClusterIP access via backend service)
-  REACT_APP_API_URL: http://tasklistapi-service.tasklistapp.svc.cluster.local/api
+  REACT_APP_API_URL: https://tasklistapi.local/api
   NODE_ENV: production
   PUBLIC_URL: /
   REACT_APP_DEBUG: "false"
