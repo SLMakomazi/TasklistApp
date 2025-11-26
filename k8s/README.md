@@ -2,21 +2,65 @@
 
 **Cluster: MicroK8s (WSL2 VM) — ArgoCD: Installed & Running — App: TasklistApp (Ready for Deployment)**
 
-This directory contains all the Kubernetes manifests needed to deploy TasklistApp with PostgreSQL to a MicroK8s cluster using ArgoCD for GitOps deployment.
+This directory contains all the Kubernetes manifests needed to deploy TasklistApp with PostgreSQL to a MicroK8s cluster using ArgoCD for GitOps deployment. The manifests are organized in a structured directory layout for better maintainability.
 
-## 📁 Files Overview
+## 📁 Directory Structure
 
-- `namespace.yaml` - Creates a dedicated `tasklistapp` namespace
-- `secrets.yaml` - Base64-encoded database credentials (⚠️ Update with your actual values)
-- `configmap.yaml` - Application configuration for Kubernetes environment
-- `postgres-pvc.yaml` - Persistent volume claim for PostgreSQL data
-- `postgres-service.yaml` - Service to expose PostgreSQL within the cluster
-- `postgres-deployment.yaml` - PostgreSQL deployment with persistent storage
-- `service.yaml` - Service to expose TasklistApp within the cluster
-- `deployment.yaml` - TasklistApp deployment with health checks and environment variables
-- `ingress.yaml` - Ingress for external access (requires ingress controller)
-- `argocd-application.yaml` - ArgoCD application manifest for automated deployment
-- `deploy.sh` - Script to manually deploy all components
+```
+k8s/
+├── README.md                    # This deployment guide
+├── namespace.yaml               # Creates the 'tasklist' namespace
+├── kustomization.yaml           # Kustomize configuration for all resources
+├── tasklistapp-secrets.yaml     # Base64-encoded database credentials
+├── ghcr-secret.yaml            # GitHub Container Registry credentials
+├── serviceaccount.yaml         # Service account for the application
+├── microk8s-hostpath-immediate.yaml # MicroK8s storage class
+├── deploy.sh                   # Manual deployment script
+├── api-manifests/              # API deployment manifests
+│   ├── deployment.yaml          # Main API deployment
+│   ├── service.yaml            # API service configuration
+│   └── configmap.yaml          # API configuration
+├── postgres-manifests/         # PostgreSQL database manifests
+│   ├── deployment.yaml          # PostgreSQL deployment
+│   ├── service.yaml            # PostgreSQL service
+│   └── pvc.yaml                # Persistent volume claim
+├── frontend-manifests/          # Frontend deployment manifests
+│   ├── deployment.yaml          # Frontend deployment
+│   └── service.yaml            # Frontend service
+├── ingress/                     # Ingress configurations
+│   └── tasklist-ingress.yaml    # External access configuration
+├── monitoring/                  # Monitoring configurations
+│   └── service-monitor.yaml     # Prometheus monitoring
+└── argocd/                      # ArgoCD application manifests
+    ├── app.yaml                # ArgoCD application definition
+    ├── argocd-application.yaml  # ArgoCD application configuration
+    └── argocd-ingress.yaml     # ArgoCD ingress configuration
+```
+
+## 🚀 CI/CD Integration
+
+### Automated Deployment Workflow
+The Kubernetes deployment is now fully integrated with GitHub Actions:
+
+1. **deploy-infrastructure.yml** sets up MicroK8s and ArgoCD
+2. **deploy-to-k8s.yml** applies all manifests from this directory structure
+3. **ArgoCD** monitors the repository and maintains sync
+
+### How It Works
+```bash
+# The deploy-to-k8s.yml workflow applies manifests in this order:
+kubectl apply -f k8s/namespace.yaml
+kubectl apply -f k8s/tasklistapp-secrets.yaml
+kubectl apply -f k8s/ghcr-secret.yaml
+kubectl apply -f k8s/serviceaccount.yaml
+kubectl apply -f k8s/postgres-manifests/
+kubectl apply -f k8s/api-manifests/
+kubectl apply -f k8s/frontend-manifests/
+kubectl apply -f k8s/ingress/
+kubectl apply -f k8s/monitoring/
+kubectl apply -f k8s/microk8s-hostpath-immediate.yaml
+kubectl apply -f k8s/argocd/
+```
 
 ## 🚀 Quick Start
 
@@ -35,22 +79,32 @@ cd k8s
 ```
 
 ### ArgoCD Deployment (Recommended)
-1. Apply the ArgoCD application manifest:
+The ArgoCD applications are now defined in the `argocd/` directory:
+
+1. Apply the ArgoCD application manifests:
    ```bash
-   kubectl apply -f argocd-application.yaml
+   kubectl apply -f argocd/
    ```
 
-2. Access ArgoCD dashboard and sync the application
+2. Access ArgoCD dashboard and monitor the applications
+
+### ArgoCD Applications
+- **app.yaml**: Main application that watches the k8s directory
+- **argocd-application.yaml**: Additional ArgoCD configurations
+- **argocd-ingress.yaml**: External access to ArgoCD UI
 
 ## 🔧 Configuration
 
 ### Update Secrets
-Edit `secrets.yaml` and update the base64 encoded database credentials:
+Edit `tasklistapp-secrets.yaml` and update the base64 encoded database credentials:
 - `db-username`: Base64 encode your PostgreSQL username
 - `db-password`: Base64 encode your PostgreSQL password
 
+### GHCR Credentials
+Update `ghcr-secret.yaml` with GitHub Container Registry credentials for pulling images.
+
 ### Update Ingress
-Edit `ingress.yaml` and change the host to match your domain or IP.
+Edit `ingress/tasklist-ingress.yaml` and change the host to match your domain or IP.
 
 ### Environment Variables
 The deployment uses these environment variables (configured in `deployment.yaml`):
@@ -61,29 +115,29 @@ The deployment uses these environment variables (configured in `deployment.yaml`
 ## 📋 Detailed Manifest Explanations
 
 ### namespace.yaml
-Creates the `tasklistapp` namespace for resource isolation:
+Creates the `tasklist` namespace for resource isolation:
 ```yaml
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: tasklistapp
+  name: tasklist
   labels:
-    name: tasklistapp
+    name: tasklist
 ```
 
-### secrets.yaml
+### tasklistapp-secrets.yaml
 Contains base64-encoded database credentials:
 ```bash
 # Generate base64 values
 echo -n "your_username" | base64  # For db-username
 echo -n "your_password" | base64  # For db-password
 
-# Update secrets.yaml with encoded values
+# Update tasklistapp-secrets.yaml with encoded values
 ```
 
 **⚠️ CRITICAL**: Update with your actual database credentials!
 
-### configmap.yaml
+### api-manifests/configmap.yaml
 Application configuration for Kubernetes environment:
 - `LOG_LEVEL_SPRING: "INFO"` - Spring framework logging
 - `LOG_LEVEL_TASKLIST: "INFO"` - Application logging
@@ -91,14 +145,14 @@ Application configuration for Kubernetes environment:
 - `JPA_SHOW_SQL: "false"` - Production SQL logging
 - `SPRING_PROFILES_ACTIVE: "kubernetes"` - K8s-specific profile
 
-### postgres-pvc.yaml
+### postgres-manifests/pvc.yaml
 Persistent storage for PostgreSQL (5Gi hostpath storage):
 ```yaml
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: tasklistapp-postgres-pvc
-  namespace: tasklistapp
+  name: tasklist-postgres-pvc
+  namespace: tasklist
 spec:
   accessModes: [ReadWriteOnce]
   storageClassName: microk8s-hostpath  # Uses MicroK8s default storage
@@ -107,21 +161,21 @@ spec:
       storage: 5Gi
 ```
 
-### postgres-deployment.yaml
+### postgres-manifests/deployment.yaml
 PostgreSQL deployment with persistent storage:
 - **Image**: Custom PostgreSQL image from GHCR
 - **Database**: `tasklistdb` (created automatically)
 - **Storage**: Uses PVC for data persistence
 - **Credentials**: From Kubernetes secrets
 
-### service.yaml
+### api-manifests/service.yaml
 Internal cluster service for TasklistApp:
 ```yaml
 apiVersion: v1
 kind: Service
 metadata:
   name: tasklistapp-service
-  namespace: tasklistapp
+  namespace: tasklist
 spec:
   selector:
     app: tasklistapp  # Matches deployment labels
@@ -131,21 +185,21 @@ spec:
   type: ClusterIP     # Internal access only
 ```
 
-### deployment.yaml
+### api-manifests/deployment.yaml
 Main application deployment with 3 replicas:
 - **Image**: `ghcr.io/slmakomazi/tasklistapp:api-latest`
 - **Health Checks**: Spring Boot Actuator (`/actuator/health`)
 - **Environment**: Database connection via service discovery
 - **Scaling**: 3 replicas for high availability
 
-### ingress.yaml
+### ingress/tasklist-ingress.yaml
 External access configuration:
 ```yaml
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: tasklistapp-ingress
-  namespace: tasklistapp
+  name: tasklist-ingress
+  namespace: tasklist
   annotations:
     kubernetes.io/ingress.class: "public"  # MicroK8s ingress controller
 spec:
@@ -161,16 +215,23 @@ spec:
               number: 80
 ```
 
-### argocd-application.yaml
+### argocd/app.yaml
 ArgoCD GitOps configuration:
 - **Repository**: `https://github.com/slmakomazi/TasklistApp`
 - **Path**: `k8s/` (watches all manifests)
-- **Target**: `tasklistapp` namespace
+- **Target**: `tasklist` namespace
 - **Sync Policy**: Automated with self-healing
 
 ## 🚀 ArgoCD Setup and Access
 
-### Install ArgoCD (if not already installed)
+### Automated ArgoCD Installation
+ArgoCD is now automatically installed and configured by the `deploy-infrastructure.yml` GitHub Actions workflow. The workflow:
+- Installs ArgoCD in the cluster
+- Configures it with NodePort for external access
+- Sets up the admin password
+- Creates the application namespace
+
+### Manual ArgoCD Installation (if needed)
 ```bash
 # Create ArgoCD namespace
 kubectl create namespace argocd
@@ -184,28 +245,31 @@ kubectl wait --for=condition=available --timeout=300s deployment/argocd-server -
 
 ### Access ArgoCD Dashboard
 ```bash
-# Port-forward ArgoCD UI (avoiding common ports)
+# Get the NodePort (configured by infrastructure workflow)
+ARGOCD_PORT=$(kubectl get svc argocd-server -n argocd -o jsonpath='{.spec.ports[?(@.name=="http")].nodePort}')
+
+# Port-forward ArgoCD UI (alternative method)
 kubectl port-forward svc/argocd-server -n argocd 9090:443
 
 # Alternative ports if 9090 taken:
 # kubectl port-forward svc/argocd-server -n argocd 9091:443
 # kubectl port-forward svc/argocd-server -n argocd 8081:443
 
-# Access at: https://localhost:9090
+# Access at: https://localhost:9090 or http://$(hostname -I | awk '{print $1}'):$ARGOCD_PORT
 # Username: admin
-# Password: kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
+# Password: admin123 (set by infrastructure workflow)
 ```
 
-### Apply TasklistApp Application
+### Apply TasklistApp Applications
 ```bash
-# Apply the ArgoCD application manifest
-kubectl apply -f argocd-application.yaml
+# Apply all ArgoCD application manifests
+kubectl apply -f argocd/
 
 # Check application status
 kubectl get applications -n argocd
 
 # View detailed sync information
-kubectl describe application tasklistapp -n argocd
+kubectl describe application tasklist-app -n argocd
 ```
 
 ## 🔍 Monitoring and Troubleshooting
@@ -213,31 +277,31 @@ kubectl describe application tasklistapp -n argocd
 ### Check Deployment Status
 ```bash
 # All resources in namespace
-kubectl get all -n tasklistapp
+kubectl get all -n tasklist
 
 # Pods with detailed status
-kubectl get pods -n tasklistapp -o wide
+kubectl get pods -n tasklist -o wide
 
 # Services and ingress
-kubectl get services,ingress -n tasklistapp
+kubectl get services,ingress -n tasklist
 
 # Persistent volumes
-kubectl get pvc -n tasklistapp
+kubectl get pvc -n tasklist
 ```
 
 ### View Logs
 ```bash
 # TasklistApp logs
-kubectl logs -l app=tasklistapp -n tasklistapp -f
+kubectl logs -l app=tasklistapp -n tasklist -f
 
 # PostgreSQL logs
-kubectl logs -l app=tasklistapp-postgresql -n tasklistapp -f
+kubectl logs -l app=tasklist-postgresql -n tasklist -f
 
 # Specific pod logs
-kubectl logs <pod-name> -n tasklistapp -f
+kubectl logs <pod-name> -n tasklist -f
 
 # Previous container logs (if restarted)
-kubectl logs <pod-name> -n tasklistapp --previous
+kubectl logs <pod-name> -n tasklist --previous
 ```
 
 ### Debug Common Issues
@@ -245,31 +309,31 @@ kubectl logs <pod-name> -n tasklistapp --previous
 #### Pod Issues
 ```bash
 # Describe pod for detailed error information
-kubectl describe pod <pod-name> -n tasklistapp
+kubectl describe pod <pod-name> -n tasklist
 
 # Check events in namespace
-kubectl get events -n tasklistapp --sort-by='.lastTimestamp'
+kubectl get events -n tasklist --sort-by='.lastTimestamp'
 
 # Check resource constraints
-kubectl describe pod <pod-name> -n tasklistapp | grep -A 10 "Limits\|Requests"
+kubectl describe pod <pod-name> -n tasklist | grep -A 10 "Limits\|Requests"
 ```
 
 #### Database Connection Issues
 ```bash
 # Verify PostgreSQL service
-kubectl get endpoints -n tasklistapp
+kubectl get endpoints -n tasklist
 
 # Check PostgreSQL logs
-kubectl logs -l app=tasklistapp-postgresql -n tasklistapp
+kubectl logs -l app=tasklist-postgresql -n tasklist
 
 # Test connection from app pod
-kubectl exec -it <tasklistapp-pod> -n tasklistapp -- nc -zv tasklistapp-postgresql-service 5432
+kubectl exec -it <tasklistapp-pod> -n tasklist -- nc -zv tasklist-postgresql-service 5432
 ```
 
 #### Image Pull Issues
 ```bash
 # Check image pull status
-kubectl describe pod <pod-name> -n tasklistapp | grep -i image
+kubectl describe pod <pod-name> -n tasklist | grep -i image
 
 # Verify image exists in GHCR
 kubectl run test-image --image=ghcr.io/slmakomazi/tasklistapp:api-latest --dry-run=client -o yaml
@@ -278,13 +342,13 @@ kubectl run test-image --image=ghcr.io/slmakomazi/tasklistapp:api-latest --dry-r
 #### ArgoCD Sync Issues
 ```bash
 # Check application sync status
-kubectl get applications tasklistapp -n argocd
+kubectl get applications tasklist-app -n argocd
 
 # View sync errors
-kubectl describe application tasklistapp -n argocd
+kubectl describe application tasklist-app -n argocd
 
 # Force sync if needed
-kubectl argo rollouts promote tasklistapp -n argocd
+kubectl argo rollouts promote tasklist-app -n argocd
 ```
 
 ## 🔐 Security Considerations
@@ -295,41 +359,35 @@ kubectl argo rollouts promote tasklistapp -n argocd
 echo -n "your_username" | base64  # For db-username
 echo -n "your_password" | base64  # For db-password
 
-# Update k8s/secrets.yaml with encoded values
+# Update k8s/tasklistapp-secrets.yaml with encoded values
 # Example format:
 # db-username: cG9zdGdyZXM=  # "postgres"
 # db-password: YWRtaW4=      # "admin"
 ```
 
+**⚠️ CRITICAL**: Update with your actual database credentials!
+
 ### GitHub Repository Secrets
-The following secrets are configured in the GitHub repository:
+The following secrets are configured in the GitHub repository and used by the automated workflows:
 
-| Secret Name | Description | Last Updated |
-|-------------|-------------|--------------|
-| `ANSIBLE_VAULT_PASSWORD` | Password for decrypting Ansible vault files | 2 days ago |
-| `DB_PASSWORD` | PostgreSQL database password | last month |
-| `DB_URL` | Database connection URL | last month |
-| `DB_USERNAME` | PostgreSQL database username | last month |
-| `DOCKER_PASSWORD` | Docker Hub/GHCR password | last month |
-| `DOCKER_USERNAME` | Docker Hub/GHCR username | last month |
-| `FRONTEND_API_URL` | Frontend API endpoint configuration | last month |
-| `SSH_KNOWN_HOSTS` | SSH known hosts file content | 3 weeks ago |
-| `SSH_PRIVATE_KEY` | SSH private key for VM access | 3 weeks ago |
-| `SUDO_PASSWORD` | WSL Ubuntu sudo password for runner | 2 days ago |
-| `VM_HOST` | Target VM hostname/IP | last month |
-| `VM_SSH_KEY` | SSH key for VM access | last month |
-| `VM_USER` | SSH username for VM access | last month |
+| Secret Name | Description | Used By |
+|-------------|-------------|----------|
+| `DB_PASSWORD` | PostgreSQL database password | deploy-to-k8s.yml |
+| `DB_USERNAME` | PostgreSQL database username | deploy-to-k8s.yml |
+| `DB_URL` | Database connection URL | deploy-to-k8s.yml |
+| `FRONTEND_API_URL` | Frontend API endpoint configuration | deploy-to-k8s.yml |
+| `SUDO_PASSWORD` | WSL Ubuntu sudo password for runner | deploy-infrastructure.yml |
 
-**Note**: Current deployment uses zero SSH approach. SSH secrets are retained for compatibility.
+**Note**: The workflows now use the zero SSH approach through self-hosted runner.
 
 ### Security Best Practices
-- ✅ **Base64 Encoding**: All secrets must be base64 encoded
-- ✅ **Namespace Isolation**: Secrets scoped to `tasklistapp` namespace
+- ✅ **Base64 Encoding**: All secrets must be base64 encoded in Kubernetes manifests
+- ✅ **Namespace Isolation**: Secrets scoped to `tasklist` namespace
 - ✅ **No Plaintext**: Never commit plaintext credentials to version control
 - ✅ **Minimal Permissions**: Service accounts use least-privilege access
-- ✅ **Network Policies**: Can be added for additional security
+- ✅ **GitHub Secrets**: Sensitive data stored in GitHub repository secrets
 
-## 🛡️ Production Security Checklist
+## Production Security Checklist
 
 ### Authentication & Authorization
 - [ ] **Database credentials** are strong and unique

@@ -2,9 +2,11 @@ name: Deploy to Kubernetes
 
 on:
   workflow_run:
-    workflows: ["Deploy Application"]
+    workflows: ["Deploy Infrastructure", "Backend CI"]
     types:
       - completed
+    branches:
+      - main
   workflow_dispatch:
 
 env:
@@ -15,8 +17,6 @@ env:
   DB_USERNAME: ${{ secrets.DB_USERNAME }}
   DB_URL: ${{ secrets.DB_URL }}
   FRONTEND_API_URL: ${{ secrets.FRONTEND_API_URL }}
-  SUDO_PASSWORD: ${{ secrets.SUDO_PASSWORD }}
-  ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
 
 jobs:
   deploy:
@@ -27,6 +27,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Download kubeconfig
+        uses: actions/download-artifact@v4
+        with:
+          name: kubeconfig
+          path: ${{ github.workspace }}/kubeconfig
+
       - name: Setup kubectl
         run: |
           # Ensure kubectl is available
@@ -36,129 +42,15 @@ jobs:
             chmod +x kubectl
             sudo mv kubectl /usr/local/bin/
           fi
-
-      - name: Verify MicroK8s cluster
-        run: |
-          echo "🔍 Verifying MicroK8s installation and status..."
           
-          # Check if MicroK8s is installed
-          if ! command -v microk8s &> /dev/null; then
-            echo "❌ MicroK8s is not installed. Please install MicroK8s first."
-            exit 1
-          fi
-          echo "✅ MicroK8s is installed: $(microk8s version --client)"
-          
-          # Check if MicroK8s is running
-          if ! microk8s status | grep -q "running"; then
-            echo "❌ MicroK8s is not running. Starting MicroK8s..."
-            microk8s start
-            echo "⏳ Waiting for MicroK8s to start..."
-            microk8s status --wait-ready
-          else
-            echo "✅ MicroK8s is running"
-          fi
-          
-          # Check required addons
-          echo "🔍 Checking required MicroK8s addons..."
-          REQUIRED_ADDONS="dns storage ingress dashboard metrics-server registry"
-          MISSING_ADDONS=""
-          
-          for addon in $REQUIRED_ADDONS; do
-            if microk8s status | grep -q "$addon: enabled"; then
-              echo "✅ Addon '$addon' is enabled"
-            else
-              echo "❌ Addon '$addon' is not enabled"
-              MISSING_ADDONS="$MISSING_ADDONS $addon"
-            fi
-          done
-          
-          if [ -n "$MISSING_ADDONS" ]; then
-            echo "❌ Missing required addons: $MISSING_ADDONS"
-            echo "Please enable them first: microk8s enable$MISSING_ADDONS"
-            exit 1
-          fi
-          
-          # Configure kubectl to use MicroK8s
-          echo "🔧 Configuring kubectl..."
-          mkdir -p $HOME/.kube
-          microk8s config > $HOME/.kube/config
-          chmod 600 $HOME/.kube/config
-          
-          # Verify cluster access
-          echo "🔍 Verifying cluster access..."
-          if ! kubectl cluster-info >/dev/null 2>&1; then
-            echo "❌ Cannot access Kubernetes cluster"
-            exit 1
-          fi
-          echo "✅ Kubernetes cluster is accessible"
-          
-          # Check node status
-          if ! kubectl get nodes | grep -q "Ready"; then
-            echo "❌ Kubernetes nodes are not ready"
-            exit 1
-          fi
-          echo "✅ Kubernetes nodes are ready"
-          
+          # Configure kubectl to use downloaded kubeconfig
+          export KUBECONFIG=${{ github.workspace }}/kubeconfig
           kubectl cluster-info
-          kubectl get nodes
-          echo "✅ MicroK8s verification completed"
-
-      - name: Install ArgoCD
-        run: |
-          echo "🔍 Verifying ArgoCD installation..."
-          
-          # Check if ArgoCD namespace exists
-          if ! kubectl get namespace argocd >/dev/null 2>&1; then
-            echo "🔧 Creating ArgoCD namespace..."
-            kubectl create namespace argocd
-          else
-            echo "✅ ArgoCD namespace exists"
-          fi
-          
-          # Check if ArgoCD is already installed
-          if kubectl get deployment argocd-server -n argocd >/dev/null 2>&1; then
-            echo "✅ ArgoCD is already installed, checking status..."
-            kubectl get deployment -n argocd
-          else
-            echo "🔧 Installing ArgoCD..."
-            # Install ArgoCD
-            kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-            echo "✅ ArgoCD installed successfully"
-          fi
-          
-          # Wait for ArgoCD to be ready (increased timeout)
-          echo "⏳ Waiting for ArgoCD to be ready..."
-          kubectl wait --for=condition=available --timeout=600s deployment/argocd-server -n argocd
-          kubectl wait --for=condition=available --timeout=600s deployment/argocd-repo-server -n argocd
-          kubectl wait --for=condition=available --timeout=600s deployment/argocd-application-controller -n argocd
-          kubectl wait --for=condition=available --timeout=600s deployment/argocd-dex-server -n argocd
-          kubectl wait --for=condition=available --timeout=600s deployment/argocd-redis -n argocd
-          kubectl wait --for=condition=available --timeout=600s deployment/argocd-notifications-controller -n argocd
-          
-          # Verify ArgoCD is healthy
-          echo "🔍 Verifying ArgoCD health..."
-          if ! kubectl get pods -n argocd | grep -q "Running"; then
-            echo "❌ ArgoCD pods are not running"
-            kubectl get pods -n argocd
-            exit 1
-          fi
-          echo "✅ ArgoCD pods are running"
-          
-          # Check ArgoCD server service
-          if ! kubectl get svc argocd-server -n argocd >/dev/null 2>&1; then
-            echo "❌ ArgoCD server service not found"
-            exit 1
-          fi
-          echo "✅ ArgoCD server service is available"
-          
-          echo "✅ ArgoCD is ready"
-
-      - name: Create namespace
-        run: |
-          kubectl create namespace ${{ env.NAMESPACE }} || true
+          echo "✅ kubectl configured"
 
       - name: Create Kubernetes secrets from GitHub secrets
         run: |
+          export KUBECONFIG=${{ github.workspace }}/kubeconfig
           echo "🔐 Creating Kubernetes secrets from GitHub secrets..."
           
           # Verify required secrets are available
@@ -211,98 +103,61 @@ jobs:
 
       - name: Apply Kubernetes manifests
         run: |
+          export KUBECONFIG=${{ github.workspace }}/kubeconfig
           echo "🚀 Deploying application to Kubernetes..."
           
-          # Verify kustomize directory exists
+          # Verify k8s directory exists
           if [ ! -d "k8s/" ]; then
             echo "❌ k8s/ directory not found"
             exit 1
           fi
           
-          # Check if kustomization.yaml exists
-          if [ ! -f "k8s/kustomization.yaml" ]; then
-            echo "❌ k8s/kustomization.yaml not found"
-            exit 1
-          fi
-          
           echo "✅ Kubernetes manifests found"
           
-          # Validate manifests before applying
-          echo "🔍 Validating Kubernetes manifests..."
-          if ! kubectl kustomize k8s/ > /dev/null; then
-            echo "❌ Kubernetes manifests validation failed"
-            exit 1
-          fi
-          echo "✅ Kubernetes manifests are valid"
+          # Apply manifests in order from your k8s directory structure
+          echo "🔧 Applying Kubernetes manifests in order..."
           
-          # Apply all manifests using kustomize
-          echo "🔧 Applying Kubernetes manifests..."
-          kubectl apply -k k8s/ -n ${{ env.NAMESPACE }}
+          # Apply namespace first
+          kubectl apply -f k8s/namespace.yaml
           
-          # Wait for deployments to be ready (increased timeout)
-          echo "⏳ Waiting for deployments to be ready..."
-          kubectl wait --for=condition=available --timeout=600s deployment -n ${{ env.NAMESPACE }} --all
+          # Apply secrets and service accounts
+          kubectl apply -f k8s/tasklistapp-secrets.yaml
+          kubectl apply -f k8s/ghcr-secret.yaml
+          kubectl apply -f k8s/serviceaccount.yaml
           
-          # Verify deployments are running
-          echo "🔍 Verifying deployments..."
-          if ! kubectl get pods -n ${{ env.NAMESPACE }} | grep -q "Running"; then
-            echo "❌ Application pods are not running"
-            kubectl get pods -n ${{ env.NAMESPACE }}
-            exit 1
-          fi
+          # Apply database manifests
+          kubectl apply -f k8s/postgres-manifests/
           
-          # Show deployment status
-          echo "📊 Deployment Status:"
-          kubectl get pods,svc,ingress -n ${{ env.NAMESPACE }}
-          echo "✅ Application deployed successfully"
+          # Apply API manifests
+          kubectl apply -f k8s/api-manifests/
+          
+          # Apply frontend manifests
+          kubectl apply -f k8s/frontend-manifests/
+          
+          # Apply ingress configurations
+          kubectl apply -f k8s/ingress/
+          
+          # Apply monitoring configurations
+          kubectl apply -f k8s/monitoring/
+          
+          # Apply microk8s specific configurations
+          kubectl apply -f k8s/microk8s-hostpath-immediate.yaml
+          
+          echo "✅ Kubernetes manifests applied"
 
       - name: Create ArgoCD application
         run: |
-          echo "🎯 Creating ArgoCD application..."
+          export KUBECONFIG=${{ github.workspace }}/kubeconfig
+          echo "🎯 Creating ArgoCD application from k8s/argocd directory..."
           
-          # Verify ArgoCD application manifest exists
-          if [ ! -f "k8s/argocd/app.yaml" ]; then
-            echo "❌ ArgoCD application manifest not found"
-            exit 1
-          fi
+          # Apply all ArgoCD manifests from your argocd directory
+          kubectl apply -f k8s/argocd/
           
-          # Validate ArgoCD application manifest
-          echo "🔍 Validating ArgoCD application manifest..."
-          if ! kubectl apply --dry-run=client -f k8s/argocd/app.yaml -n argocd >/dev/null; then
-            echo "❌ ArgoCD application manifest validation failed"
-            exit 1
-          fi
-          echo "✅ ArgoCD application manifest is valid"
-          
-          # Apply ArgoCD application manifest
-          echo "🔧 Applying ArgoCD application manifest..."
-          kubectl apply -f k8s/argocd/app.yaml -n argocd
-          
-          # Wait for ArgoCD application to be created
-          echo "⏳ Waiting for ArgoCD application to be created..."
-          if ! kubectl wait --for=condition=Synced --timeout=300s application/tasklist-app -n argocd; then
-            echo "⚠️ ArgoCD application sync timeout, but continuing..."
-          fi
-          
-          # Verify ArgoCD application status
-          echo "🔍 Verifying ArgoCD application..."
-          if ! kubectl get application tasklist-app -n argocd >/dev/null 2>&1; then
-            echo "❌ ArgoCD application was not created"
-            exit 1
-          fi
-          
-          # Show ArgoCD application status
-          echo "📊 ArgoCD Application Status:"
-          kubectl get application tasklist-app -n argocd -o wide
-          
-          # Check application health
-          APP_HEALTH=$(kubectl get application tasklist-app -n argocd -o jsonpath='{.status.health.status}' 2>/dev/null || echo "Unknown")
-          echo "Application Health Status: $APP_HEALTH"
-          
-          echo "✅ ArgoCD application created successfully"
+          echo "✅ ArgoCD applications created"
 
       - name: Verify deployment
         run: |
+          export KUBECONFIG=${{ github.workspace }}/kubeconfig
           echo "🔍 Verifying deployment..."
           
           # Check pod health
@@ -339,6 +194,7 @@ jobs:
       - name: Troubleshooting info
         if: failure()
         run: |
+          export KUBECONFIG=${{ github.workspace }}/kubeconfig
           echo "🔍 Troubleshooting information..."
           
           # Check ArgoCD status
@@ -363,6 +219,7 @@ jobs:
 
       - name: Run smoke tests
         run: |
+          export KUBECONFIG=${{ github.workspace }}/kubeconfig
           echo "🧪 Running smoke tests..."
           
           # Get application endpoint
@@ -403,18 +260,3 @@ jobs:
           else
             echo "⚠️ Could not determine API endpoint, skipping smoke tests"
           fi
-
-      - name: Save kubeconfig
-        if: always()
-        run: |
-          mkdir -p ${{ github.workspace }}/.kube
-          cp ~/.kube/config ${{ env.KUBE_CONFIG }}
-        
-      - name: Upload kubeconfig
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: kubeconfig
-          path: ${{ env.KUBE_CONFIG }}
-          if-no-files-found: error
-          retention-days: 1

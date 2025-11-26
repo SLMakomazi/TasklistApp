@@ -387,40 +387,22 @@ echo -n "your_password" | base64
 # In GitHub Actions workflow (ci-build.yml)
 - name: Update Kubernetes Image Tag
   run: |
-    sed -i 's|image: ghcr.io/slmakomazi/tasklistapp:.*|image: ghcr.io/slmakomazi/tasklistapp:api-${{ github.run_number }}|' k8s/deployment.yaml
-### **2. 🧪 Test Pipeline (`ci-test.yml`)**
-- **Purpose**: Runs comprehensive unit and integration tests
-- **Triggers**: Push to `main`/`develop` branches, Pull Requests
-- **Features**:
-  - Individual test isolation for detailed failure reporting
-  - PostgreSQL service integration for database testing
-  - Automated test result parsing and error reporting
+    sed -i 's|image: ghcr.io/slmakomazi/tasklistapp:.*|image: ghcr.io/slmakomazi/tasklistapp:api-${{ github.run_number }}|' k8s/api-manifests/deployment.yaml
+    git add k8s/api-manifests/deployment.yaml
+    git commit -m "Update image tag to api-${{ github.run_number }}"
+    git push
+```
 
-### **3. 🚀 VM Deployment Pipeline (`vm-deploy.yml`)**
-- **Purpose**: Deploys application to VM via SSH and systemd
-- **Triggers**: Push to `main` branch, Manual trigger
-- **Features**:
-  - Automated JAR building from source
-  - SSH deployment to VM with service management
-  - Systemd service restart and verification
-  - Deployment artifact management
-  - Error handling and rollback capabilities
-  - **NEW**: Ansible provisioning step for consistent environment setup
+## 🔄 Workflow Chain
 
-### **8) Orchestration / provisioning for hosts**
-- **Action**: Provision or update VMs, install Docker/MicroK8s, copy manifests or JARs
-- **Tech**: Ansible (playbooks: `ansible/provision.yml`, `ansible/deploy.yml`)
-- **What it does**:
-  - Ensures consistent environment on VMs (install Java 17, Docker, create users, directories)
-  - Provisions single VM or scales to multiple VMs
-  - Pulls images/manifests and applies them (idempotent)
-  - Configures systemd services and firewall rules
-- **Files involved**: `/ansible/inventory.ini`, `/ansible/provision.yml`, `/ansible/deploy.yml`
-- **Why**: Scale to many VMs without manual per-VM changes (solves changing IP problem)
-- **Usage**:
-  ```bash
-  # Provision VM
-  ansible-playbook -i ansible/inventory.ini ansible/provision.yml
+The updated CI/CD pipeline follows this sequence:
+```
+Backend CI → deploy-infrastructure.yml → deploy-to-k8s.yml
+```
+
+1. **Backend CI** builds and pushes Docker images to GHCR
+2. **Infrastructure workflow** sets up MicroK8s and ArgoCD
+3. **Deploy-to-k8s workflow** applies all manifests from your k8s directory
 
   # Deploy application
   ansible-playbook -i ansible/inventory.ini ansible/deploy.yml
@@ -607,14 +589,17 @@ TasklistApp/                     # 🚀 Main Project Directory
 │               └── 📄 logback-spring.xml      # 📝 Logging config
 ├── 📁 database/               # 🗄️ Database Layer
 │   └── 📄 README.md          # 💾 Database management guide
-└── 📁 vm/                    # 🖥️ VM Deployment (Complete)
-    ├── 📄 README.md          # 🖥️ VM deployment guide
-    ├── 📄 deploy.sh          # 🚀 Automated deployment script
-    ├── 📄 setup.sh           # 🔧 Initial setup script
-    ├── 📁 service/           # ⚙️ Systemd service files
-    │   └── 📄 tasklist.service
-    └── 📁 scripts/          # 🔧 Utility scripts
-        └── 📄 update.sh      # 🔄 Application update script
+├── 📁 k8s/                    # ☸️ Kubernetes Manifests (Organized Structure)
+│   ├── 📄 README.md           # 📋 Kubernetes deployment guide
+│   ├── 📄 namespace.yaml      # 🏷️ Application namespace
+│   ├── 📄 kustomization.yaml  # 🔧 Kustomize configuration
+│   ├── 📁 api-manifests/      # 🚀 API deployment files
+│   ├── 📁 frontend-manifests/ # 🌐 Frontend deployment files
+│   ├── 📁 postgres-manifests/ # 🗄️ Database deployment files
+│   ├── 📁 ingress/            # 🌐 Ingress configurations
+│   ├── 📁 monitoring/         # 📊 Monitoring configurations
+│   ├── 📁 argocd/              # 🔄 ArgoCD application manifests
+│   └── 📄 deploy.sh           # 🚀 Deployment script
 ```
 
 ## 🚀 Setup and Run

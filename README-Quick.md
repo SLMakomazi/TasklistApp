@@ -19,13 +19,24 @@ cd "C:\Users\F8884374\OneDrive - FRG\Desktop\Projects\TasklistApp\scripts"
 $env:GITHUB_TOKEN = "your_github_token"
 .\install-runner-service.ps1 -RepoOwner "SLMakomazi" -RepoName "TasklistApp"
 
-# 4. Deploy via CI/CD
+# 4. Deploy via CI/CD (triggered by push)
 git push origin main
 
 # 5. Access app
 kubectl get pods -n tasklist
 kubectl port-forward -n tasklist svc/tasklistapp-service 8080:80
 ```
+
+## 🔄 Updated CI/CD Workflow
+
+The pipeline now follows this optimized sequence:
+```
+Backend CI → deploy-infrastructure.yml → deploy-to-k8s.yml
+```
+
+- **Backend CI**: Builds and pushes Docker images to GHCR
+- **Infrastructure**: Sets up MicroK8s + ArgoCD
+- **Deploy-to-k8s**: Applies all manifests from your organized k8s directory
 
 ## 🔧 Key Commands
 

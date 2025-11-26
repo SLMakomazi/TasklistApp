@@ -325,15 +325,28 @@ curl http://localhost:8080/api/tasks
 # Build and push to GitHub Container Registry (via CI/CD)
 # Images automatically available at: ghcr.io/slmakomazi/tasklistapp:api-latest
 
-# Deploy to Kubernetes (from project root)
+# Deploy to Kubernetes (automated via GitHub Actions)
+# The deploy-to-k8s.yml workflow applies all manifests from ../k8s/ directory
+
+# Manual deployment (if needed)
 cd ../k8s
 ./deploy.sh
 
 # Or via ArgoCD (automatic sync)
 # Access ArgoCD dashboard for monitoring
-kubectl port-forward svc/argocd-server -n argocd 8080:443
-# Username: admin, Password: (from kubectl get secret argocd-initial-admin-secret)
+kubectl port-forward svc/argocd-server -n argocd 9090:443
+# Username: admin, Password: admin123 (set by infrastructure workflow)
 ```
+
+### Updated CI/CD Pipeline
+The application is now deployed through an optimized workflow chain:
+```
+Backend CI → deploy-infrastructure.yml → deploy-to-k8s.yml
+```
+
+1. **Backend CI** (`ci-build.yml`): Builds Docker image and pushes to GHCR
+2. **Infrastructure** (`deploy-infrastructure.yml`): Sets up MicroK8s + ArgoCD
+3. **Deploy-to-k8s** (`deploy-to-k8s.yml`): Applies manifests from organized k8s directory
 
 ### VM Deployment
 ```bash
