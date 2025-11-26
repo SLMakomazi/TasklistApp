@@ -65,19 +65,14 @@ spec:
                 secretKeyRef:
                   name: tasklistapp-secrets
                   key: db-password
-            # 2. Inject DB Host and Name from the Secret
+            # 2. Set the host directly using the Kubernetes Service Name
             - name: DB_HOST
-              valueFrom:
-                secretKeyRef:
-                  name: tasklistapp-secrets
-                  key: db-host
+              value: postgresdb-service
+            # 3. Set the database name directly
             - name: DB_NAME
-              valueFrom:
-                secretKeyRef:
-                  name: tasklistapp-secrets
-                  key: db-name
+              value: tasklistdb
 
-          # 3. Load the rest of the ConfigMap variables using envFrom
+          # 4. Load the rest of the ConfigMap variables using envFrom
           envFrom:
             - configMapRef:
                 name: tasklistapi-config
