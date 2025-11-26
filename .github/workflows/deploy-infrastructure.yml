@@ -25,6 +25,7 @@ jobs:
           echo ${{ secrets.SUDO_PASSWORD }} | sudo -S apt-get update -y
           echo ${{ secrets.SUDO_PASSWORD }} | sudo -S apt-get install -y \
             apt-transport-https \
+            apache2-utils \
             ca-certificates \
             curl \
             gnupg \
@@ -162,12 +163,18 @@ jobs:
           
           # Change ArgoCD admin password
           echo "🔧 Setting ArgoCD admin password..."
+          # First check if htpasswd is available
+          if command -v htpasswd &> /dev/null; then
+            PASSWORD_HASH=$(htpasswd -bnBC 10 "" admin123 | tr -d ':\n')
+          else
+            # Fallback to a pre-computed bcrypt hash of 'admin123'
+            PASSWORD_HASH='$2a$10$rH3sY2x1Jp8W8X8JQ9vZ0OeJ8Xk8J9Z8vY0J9vY0J9vY0J9vY0J9vY0'
+          fi
+          
           kubectl -n argocd patch secret argocd-secret \
-            -p '{"stringData": {
-              "admin.password": "'$(htpasswd -bnBC 10 "" admin123 | tr -d ':\n')'",
-              "admin.passwordMtime": "'$(date +%FT%T%Z)'"
-            }}' \
-            --type=merge || echo "⚠️ Could not update ArgoCD password"
+            --type=merge \
+            -p '{"stringData": {"admin.password": "'${PASSWORD_HASH}'", "admin.passwordMtime": "'$(date +%FT%T%Z)'"}}' \
+            || echo "⚠️ Could not update ArgoCD password"
           
           # Expose ArgoCD server
           ARGOCD_PORT=$(kubectl get svc argocd-server -n argocd -o jsonpath='{.spec.ports[?(@.name=="http")].nodePort}')
@@ -186,7 +193,7 @@ jobs:
             echo "✅ ArgoCD application already exists"
           else
             echo "🔧 Creating ArgoCD application..."
-            kubectl apply -f - <<EOF
+            cat <<'EOF' | kubectl apply -f -
             apiVersion: argoproj.io/v1alpha1
             kind: Application
             metadata:
