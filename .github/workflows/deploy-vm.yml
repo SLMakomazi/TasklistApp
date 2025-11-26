@@ -105,7 +105,7 @@ jobs:
           # Check if kubectl is already installed
           if command -v kubectl &> /dev/null; then
             echo "✅ kubectl is already installed, skipping installation"
-            kubectl version --client --short
+            kubectl version --client
           else
             echo "🔧 Installing kubectl..."
             # Install kubectl
