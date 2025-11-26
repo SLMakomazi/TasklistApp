@@ -1,21 +1,25 @@
 ---
 # Ansible Vault Variables for TasklistApp
 # Encrypt this file with: ansible-vault encrypt group_vars/all/vault.yml
+# This file uses GitHub secrets from repository
 
-# Database credentials
-db_root_password: "secure_root_password_change_me"
+# Database credentials (from GitHub secrets)
+db_root_password: "{{ vault_db_password }}"
 db_name: "tasklistdb"
-db_user: "tasklist_user"
-db_password: "secure_db_password_change_me"
+db_user: "{{ vault_db_username }}"
+db_password: "{{ vault_db_password }}"
 
-# Application secrets
-spring_datasource_url: "jdbc:postgresql://tasklist-db:5432/{{ db_name }}"
-spring_datasource_username: "{{ db_user }}"
-spring_datasource_password: "{{ db_password }}"
+# Application secrets (from GitHub secrets)
+spring_datasource_url: "{{ vault_db_url }}"
+spring_datasource_username: "{{ vault_db_username }}"
+spring_datasource_password: "{{ vault_db_password }}"
 
-# GitHub Container Registry credentials
-ghcr_username: "{{ github_actor }}"
-ghcr_password: "{{ github_token }}"
+# GitHub Container Registry credentials (from GitHub secrets)
+ghcr_username: "{{ vault_docker_username }}"
+ghcr_password: "{{ vault_docker_password }}"
+
+# Ansible vault password (from GitHub secrets)
+ansible_vault_password: "{{ vault_ansible_vault_password }}"
 
 # ArgoCD credentials
 argocd_admin_password: "admin123"
@@ -23,3 +27,9 @@ argocd_admin_password: "admin123"
 # JMeter configuration
 jmeter_host: "localhost"
 jmeter_port: "8080"
+
+# Frontend configuration (from GitHub secrets)
+frontend_api_url: "{{ vault_frontend_api_url }}"
+
+# Sudo password for WSL operations (from GitHub secrets)
+sudo_password: "{{ vault_sudo_password }}"

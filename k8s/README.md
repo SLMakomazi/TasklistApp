@@ -301,6 +301,27 @@ echo -n "your_password" | base64  # For db-password
 # db-password: YWRtaW4=      # "admin"
 ```
 
+### GitHub Repository Secrets
+The following secrets are configured in the GitHub repository:
+
+| Secret Name | Description | Last Updated |
+|-------------|-------------|--------------|
+| `ANSIBLE_VAULT_PASSWORD` | Password for decrypting Ansible vault files | 2 days ago |
+| `DB_PASSWORD` | PostgreSQL database password | last month |
+| `DB_URL` | Database connection URL | last month |
+| `DB_USERNAME` | PostgreSQL database username | last month |
+| `DOCKER_PASSWORD` | Docker Hub/GHCR password | last month |
+| `DOCKER_USERNAME` | Docker Hub/GHCR username | last month |
+| `FRONTEND_API_URL` | Frontend API endpoint configuration | last month |
+| `SSH_KNOWN_HOSTS` | SSH known hosts file content | 3 weeks ago |
+| `SSH_PRIVATE_KEY` | SSH private key for VM access | 3 weeks ago |
+| `SUDO_PASSWORD` | WSL Ubuntu sudo password for runner | 2 days ago |
+| `VM_HOST` | Target VM hostname/IP | last month |
+| `VM_SSH_KEY` | SSH key for VM access | last month |
+| `VM_USER` | SSH username for VM access | last month |
+
+**Note**: Current deployment uses zero SSH approach. SSH secrets are retained for compatibility.
+
 ### Security Best Practices
 - ✅ **Base64 Encoding**: All secrets must be base64 encoded
 - ✅ **Namespace Isolation**: Secrets scoped to `tasklistapp` namespace

@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: tasklistapi-config
-  namespace: tasklistapp
+  namespace: tasklist
 data:
   # Application configuration for Kubernetes environment
   LOG_LEVEL_SPRING: "INFO"

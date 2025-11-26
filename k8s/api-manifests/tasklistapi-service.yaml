@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: tasklistapi-service
-  namespace: tasklistapp
+  namespace: tasklist
   labels:
     app: tasklistapi
     tier: backend

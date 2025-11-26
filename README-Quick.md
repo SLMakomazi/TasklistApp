@@ -94,7 +94,22 @@ Developer → GitHub → CI/CD Pipeline → GHCR → Self-Hosted Runner → Micr
 
 ## 📋 GitHub Repository Secrets Required
 
-- `GITHUB_TOKEN` - GitHub personal access token
-- `SUDO_PASSWORD` - WSL Ubuntu sudo password (for runner)
+| Secret Name | Description | Last Updated |
+|-------------|-------------|--------------|
+| `ANSIBLE_VAULT_PASSWORD` | Password for decrypting Ansible vault files | 2 days ago |
+| `DB_PASSWORD` | PostgreSQL database password | last month |
+| `DB_URL` | Database connection URL | last month |
+| `DB_USERNAME` | PostgreSQL database username | last month |
+| `DOCKER_PASSWORD` | Docker Hub/GHCR password | last month |
+| `DOCKER_USERNAME` | Docker Hub/GHCR username | last month |
+| `FRONTEND_API_URL` | Frontend API endpoint configuration | last month |
+| `SSH_KNOWN_HOSTS` | SSH known hosts file content | 3 weeks ago |
+| `SSH_PRIVATE_KEY` | SSH private key for VM access | 3 weeks ago |
+| `SUDO_PASSWORD` | WSL Ubuntu sudo password for runner | 2 days ago |
+| `VM_HOST` | Target VM hostname/IP | last month |
+| `VM_SSH_KEY` | SSH key for VM access | last month |
+| `VM_USER` | SSH username for VM access | last month |
+
+**Current deployment uses zero SSH approach through self-hosted runner. SSH secrets are retained for compatibility.**
 
 **Zero SSH deployment ready with GitOps, health checks, auto-scaling, and comprehensive monitoring!** 🚀

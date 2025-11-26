@@ -11,6 +11,13 @@ on:
 env:
   KUBE_CONFIG: ${{ github.workspace }}/kubeconfig
   NAMESPACE: tasklist
+  # Environment variables from GitHub secrets
+  DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+  DB_USERNAME: ${{ secrets.DB_USERNAME }}
+  DB_URL: ${{ secrets.DB_URL }}
+  FRONTEND_API_URL: ${{ secrets.FRONTEND_API_URL }}
+  SUDO_PASSWORD: ${{ secrets.SUDO_PASSWORD }}
+  ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
 
 jobs:
   deploy:
@@ -48,6 +55,24 @@ jobs:
       - name: Create namespace
         run: |
           kubectl create namespace ${{ env.NAMESPACE }} || true
+
+      - name: Create Kubernetes secrets from GitHub secrets
+        run: |
+          echo "🔐 Creating Kubernetes secrets from GitHub secrets..."
+          
+          # Create database secrets
+          kubectl create secret generic tasklist-db-secrets \
+            --from-literal=db-username=$(echo -n "${{ secrets.DB_USERNAME }}" | base64) \
+            --from-literal=db-password=$(echo -n "${{ secrets.DB_PASSWORD }}" | base64) \
+            --from-literal=db-url=$(echo -n "${{ secrets.DB_URL }}" | base64) \
+            -n ${{ env.NAMESPACE }} || true
+          
+          # Create application secrets
+          kubectl create secret generic tasklist-app-secrets \
+            --from-literal=frontend-api-url="${{ secrets.FRONTEND_API_URL }}" \
+            -n ${{ env.NAMESPACE }} || true
+          
+          echo "✅ Secrets created successfully"
 
       - name: Apply Kubernetes manifests
         run: |

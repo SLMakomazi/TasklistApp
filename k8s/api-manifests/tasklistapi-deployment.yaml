@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: tasklistapi-deployment
-  namespace: tasklistapp
+  namespace: tasklist
   labels:
     app: tasklistapi
     tier: backend

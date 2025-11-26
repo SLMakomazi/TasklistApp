@@ -158,11 +158,23 @@ kubectl apply -f k8s/argocd/app.yaml
 #### 5.1 Required Secrets
 Add these secrets to your GitHub repository:
 
-| Secret Name | Description |
-|-------------|-------------|
-| `GITHUB_TOKEN` | GitHub token with repo and workflow scopes |
-| `SUDO_PASSWORD` | WSL Ubuntu sudo password (for self-hosted runner) |
-| `FRONTEND_API_URL` | Frontend API URL configuration |
+| Secret Name | Description | Last Updated |
+|-------------|-------------|--------------|
+| `ANSIBLE_VAULT_PASSWORD` | Password for decrypting Ansible vault files | 2 days ago |
+| `DB_PASSWORD` | PostgreSQL database password | last month |
+| `DB_URL` | Database connection URL | last month |
+| `DB_USERNAME` | PostgreSQL database username | last month |
+| `DOCKER_PASSWORD` | Docker Hub/GHCR password | last month |
+| `DOCKER_USERNAME` | Docker Hub/GHCR username | last month |
+| `FRONTEND_API_URL` | Frontend API endpoint configuration | last month |
+| `SSH_KNOWN_HOSTS` | SSH known hosts file content | 3 weeks ago |
+| `SSH_PRIVATE_KEY` | SSH private key for VM access | 3 weeks ago |
+| `SUDO_PASSWORD` | WSL Ubuntu sudo password for runner | 2 days ago |
+| `VM_HOST` | Target VM hostname/IP | last month |
+| `VM_SSH_KEY` | SSH key for VM access | last month |
+| `VM_USER` | SSH username for VM access | last month |
+
+**Note**: While SSH secrets are configured, the current implementation uses **zero SSH deployment** through the self-hosted runner. These SSH secrets are retained for legacy compatibility and potential future use.
 
 #### 5.2 Enable Self-Hosted Runner
 1. Go to Repository Settings → Actions → Runners

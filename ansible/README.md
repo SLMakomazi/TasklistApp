@@ -36,9 +36,25 @@ localhost ansible_connection=local ansible_user=siseko
 ```
 
 ### Required Secrets
-Ensure these are set in your CI/CD environment:
-- `ANSIBLE_VAULT_PASSWORD`: Vault password for decrypting secrets
-- `SUDO_PASSWORD`: WSL Ubuntu sudo password (for self-hosted runner)
+Ensure these are set in your GitHub repository:
+
+| Secret Name | Description | Last Updated |
+|-------------|-------------|--------------|
+| `ANSIBLE_VAULT_PASSWORD` | Password for decrypting Ansible vault files | 2 days ago |
+| `DB_PASSWORD` | PostgreSQL database password | last month |
+| `DB_URL` | Database connection URL | last month |
+| `DB_USERNAME` | PostgreSQL database username | last month |
+| `DOCKER_PASSWORD` | Docker Hub/GHCR password | last month |
+| `DOCKER_USERNAME` | Docker Hub/GHCR username | last month |
+| `FRONTEND_API_URL` | Frontend API endpoint configuration | last month |
+| `SSH_KNOWN_HOSTS` | SSH known hosts file content | 3 weeks ago |
+| `SSH_PRIVATE_KEY` | SSH private key for VM access | 3 weeks ago |
+| `SUDO_PASSWORD` | WSL Ubuntu sudo password for runner | 2 days ago |
+| `VM_HOST` | Target VM hostname/IP | last month |
+| `VM_SSH_KEY` | SSH key for VM access | last month |
+| `VM_USER` | SSH username for VM access | last month |
+
+**Note**: The current implementation uses zero SSH deployment through the self-hosted runner. SSH secrets are retained for legacy compatibility.
 
 ### Running the Playbook
 ```bash
