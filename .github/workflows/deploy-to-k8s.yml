@@ -31,7 +31,22 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: kubeconfig
-          path: ${{ github.workspace }}/kubeconfig
+          path: ${{ github.workspace }}
+
+      - name: Verify kubeconfig file
+        run: |
+          echo "🔍 Checking if kubeconfig file exists..."
+          ls -la ${{ github.workspace }}/kubeconfig
+          if [ -f "${{ github.workspace }}/kubeconfig" ]; then
+            echo "✅ Kubeconfig file found"
+            echo "📋 Kubeconfig content preview:"
+            head -n 5 ${{ github.workspace }}/kubeconfig
+          else
+            echo "❌ Kubeconfig file not found"
+            echo "📁 Available files:"
+            ls -la ${{ github.workspace }}
+            exit 1
+          fi
 
       - name: Setup kubectl
         run: |
