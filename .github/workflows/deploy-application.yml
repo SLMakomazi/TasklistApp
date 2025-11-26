@@ -1,0 +1,110 @@
+name: Deploy Application
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["Deploy Infrastructure"]
+    types: [completed]
+
+jobs:
+  deploy-application:
+    name: Deploy Application
+    runs-on: [self-hosted, linux]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download kubeconfig
+        uses: actions/download-artifact@v4
+        with:
+          name: kubeconfig
+          path: ${{ github.workspace }}/kubeconfig
+
+      - name: Set up kubectl
+        run: |
+          # Set up kubectl to use downloaded kubeconfig
+          export KUBECONFIG=${{ github.workspace }}/kubeconfig
+          kubectl cluster-info
+          echo "✅ kubectl configured"
+
+      - name: Create JMeter Test Plan
+        run: |
+          # Create test directory
+          mkdir -p /opt/tasklistapp/jmeter
+          
+          # Create JMeter test plan using echo statements
+          echo '<?xml version="1.0" encoding="UTF-8"?>' > /opt/tasklistapp/jmeter/load-test.jmx
+          echo '<jmeterTestPlan version="1.2" properties="5.0" jmeter="5.4.1">' >> /opt/tasklistapp/jmeter/load-test.jmx
+          echo '  <hashTree>' >> /opt/tasklistapp/jmeter/load-test.jmx
+          echo '    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Tasklist Load Test" enabled="true">' >> /opt/tasklistapp/jmeter/load-test.jmx
+          echo '      <stringProp name="TestPlan.user_define_classpath"></stringProp>' >> /opt/tasklistapp/jmeter/load-test.jmx
+          echo '    </TestPlan>' >> /opt/tasklistapp/jmeter/load-test.jmx
+          echo '    <hashTree>' >> /opt/tasklistapp/jmeter/load-test.jmx
+          echo '      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Tasklist Users" enabled="true">' >> /opt/tasklistapp/jmeter/load-test.jmx
+          echo '        <stringProp name="ThreadGroup.num_threads">10</stringProp>' >> /opt/tasklistapp/jmeter/load-test.jmx
+          echo '        <stringProp name="ThreadGroup.ramp_time">10</stringProp>' >> /opt/tasklistapp/jmeter/load-test.jmx
+          echo '        <stringProp name="ThreadGroup.loops">5</stringProp>' >> /opt/tasklistapp/jmeter/load-test.jmx
+          echo '      </ThreadGroup>' >> /opt/tasklistapp/jmeter/load-test.jmx
+          echo '      <hashTree/>' >> /opt/tasklistapp/jmeter/load-test.jmx
+          echo '    </hashTree>' >> /opt/tasklistapp/jmeter/load-test.jmx
+          echo '  </hashTree>' >> /opt/tasklistapp/jmeter/load-test.jmx
+          echo '</jmeterTestPlan>' >> /opt/tasklistapp/jmeter/load-test.jmx
+          
+          echo "✅ JMeter test plan created"
+
+      - name: Build and Deploy Application
+        working-directory: ${{ github.workspace }}
+        env:
+          DOCKER_BUILDKIT: 1
+        run: |
+          # Build Docker images
+          if [ -f "docker-compose.build.yml" ]; then
+            docker-compose -f docker-compose.build.yml build
+          else
+            echo "No docker-compose.build.yml found, skipping build"
+          fi
+
+      - name: Verify Deployment
+        run: |
+          export KUBECONFIG=${{ github.workspace }}/kubeconfig
+          
+          echo "=== Kubernetes Status ==="
+          kubectl get all --all-namespaces
+          
+          echo -e "\n=== ArgoCD Status ==="
+          ARGOCD_PORT=$(kubectl get svc argocd-server -n argocd -o jsonpath='{.spec.ports[?(@.name=="http")].nodePort}')
+          ARGOCD_IP=$(hostname -I | awk '{print $1}')
+          
+          echo "ArgoCD is available at: http://$ARGOCD_IP:$ARGOCD_PORT"
+          echo "ArgoCD Username: admin"
+          echo "ArgoCD Password: admin123"
+          
+          echo -e "\n=== Application Status ==="
+          kubectl get pods,svc,ingress -n tasklist
+          
+          # Get application URL
+          APP_INGRESS=$(kubectl get ingress -n tasklist -o jsonpath='{.items[0].spec.rules[0].host}' 2>/dev/null || echo "")
+          if [ -z "$APP_INGRESS" ]; then
+            NODE_PORT=$(kubectl get svc -n tasklist -o jsonpath='{.items[?(@.spec.type=="NodePort")].spec.ports[0].nodePort}' 2>/dev/null || echo "")
+            if [ -n "$NODE_PORT" ]; then
+              echo -e "\n=== Application URL ==="
+              echo "Application is available at: http://$ARGOCD_IP:$NODE_PORT"
+            else
+              echo -e "\n=== Application URL ==="
+              echo "Could not determine application URL. Please check the service type and ports."
+            fi
+          else
+            echo -e "\n=== Application URL ==="
+            echo "Application is available at: http://$APP_INGRESS"
+          fi
+          
+          echo -e "\n=== JMeter Test Plan ==="
+          echo "JMeter test plan is available at: /opt/tasklistapp/jmeter/load-test.jmx"
+
+      - name: Upload JMeter Test Plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: jmeter-test-plan
+          path: /opt/tasklistapp/jmeter/load-test.jmx
+          if-no-files-found: error
+          retention-days: 7
