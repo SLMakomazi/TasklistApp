@@ -190,12 +190,33 @@ jobs:
           
           echo "✅ Infrastructure setup completed"
 
-      - name: Save kubeconfig
-        if: always()
+      - name: Generate stable kubeconfig
         run: |
-          mkdir -p ${{ github.workspace }}/.kube
-          cp ~/.kube/config ${{ github.workspace }}/kubeconfig
+          echo "🔧 Generating stable kubeconfig with localhost..."
+          
+          # Generate kubeconfig
+          microk8s config > ~/microk8s-kubeconfig
+          
+          # Force server to localhost (stable, never changes)
+          sed -i 's|server: https://.*:16443|server: https://127.0.0.1:16443|' ~/microk8s-kubeconfig
+          
+          # Verify the change
+          echo "✅ Kubeconfig server address:"
+          grep server ~/microk8s-kubeconfig
+          
+          # Copy to workspace for artifact upload
+          cp ~/microk8s-kubeconfig ${{ github.workspace }}/kubeconfig
           chmod 644 ${{ github.workspace }}/kubeconfig
+        
+      - name: Test kubeconfig connection
+        run: |
+          echo "🔍 Testing kubeconfig connection..."
+          export KUBECONFIG=${{ github.workspace }}/kubeconfig
+          
+          # Test connection
+          kubectl get nodes
+          kubectl cluster-info
+          echo "✅ Kubeconfig connection successful"
         
       - name: Upload kubeconfig
         if: always()

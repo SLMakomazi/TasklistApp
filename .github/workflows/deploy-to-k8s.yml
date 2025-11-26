@@ -35,7 +35,6 @@ jobs:
 
       - name: Setup kubectl
         run: |
-          # Ensure kubectl is available
           if ! command -v kubectl &> /dev/null; then
             echo "kubectl not found, installing..."
             curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
@@ -45,8 +44,12 @@ jobs:
           
           # Configure kubectl to use downloaded kubeconfig
           export KUBECONFIG=${{ github.workspace }}/kubeconfig
-          kubectl cluster-info
-          echo "✅ kubectl configured"
+          
+          # Test connection
+          echo "🔍 Testing kubeconfig connection..."
+          kubectl --kubeconfig=${{ github.workspace }}/kubeconfig get nodes
+          kubectl --kubeconfig=${{ github.workspace }}/kubeconfig cluster-info
+          echo "✅ kubectl configured and connected"
 
       - name: Create Kubernetes secrets from GitHub secrets
         run: |
