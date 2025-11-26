@@ -1,85 +1,70 @@
-# 🚀 TasklistApp - Task Management API
+# TasklistApp - Task Management API
 
 **A modern, full-stack task management application with Kubernetes, ArgoCD, and CI/CD**
 
-## 🚀 Quick Start - New Machine Setup
+## Quick Start - New Machine Setup
 
 ### Prerequisites
-- **WSL2** (Windows Subsystem for Linux 2)
-- **Docker Desktop** with Kubernetes enabled
-- **kubectl** (Kubernetes CLI)
-- **Git**
-- **Java 17+** (for local development)
-- **Maven** (for local development)
-- **Node.js** (for frontend development)
+- **WSL2** (Windows Subsystem for Linux 2) with Ubuntu
+- **Docker Desktop** with WSL2 integration
+- **GitHub account** with repository access
+- **Administrator privileges** (for runner service)
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/yourusername/TasklistApp.git
+git clone https://github.com/SLMakomazi/TasklistApp.git
 cd TasklistApp
 ```
 
-### 2. Set Up Kubernetes Cluster with MicroK8s
+### 2. Automated MicroK8s + ArgoCD Setup
 ```bash
-# Install MicroK8s on WSL2
-sudo snap install microk8s --classic
+# Run the complete setup script in WSL Ubuntu
+chmod +x scripts/setup-microk8s-wsl.sh
+./scripts/setup-microk8s-wsl.sh
 
-# Add current user to the microk8s group
-sudo usermod -a -G microk8s $USER
-newgrp microk8s
-
-# Start MicroK8s
-microk8s start
-
-# Enable required addons
-microk8s enable dns ingress storage registry metrics-server
-
-# Create alias for kubectl
-echo "alias kubectl='microk8s kubectl'" >> ~/.bashrc
+# Reload shell to apply changes
 source ~/.bashrc
+
+# Update vault password
+nano ~/.vault_pass.txt
 ```
 
-### 3. Install ArgoCD
+### 3. Windows Self-Hosted Runner Setup
+```powershell
+# In PowerShell as Administrator
+cd "C:\Users\F8884374\OneDrive - FRG\Desktop\Projects\TasklistApp\scripts"
+$env:GITHUB_TOKEN = "your_github_personal_access_token"
+.\install-runner-service.ps1 -RepoOwner "SLMakomazi" -RepoName "TasklistApp"
+```
+
+### 4. Access ArgoCD
 ```bash
-# Create namespace
-kubectl create namespace argocd
+# Get ArgoCD credentials
+ARGOCD_PORT=$(kubectl get svc argocd-server -n argocd -o jsonpath='{.spec.ports[?(@.name=="http")].nodePort}')
+ARGOCD_PASSWORD=$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d)
 
-# Install ArgoCD
-kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-
-# Wait for pods to be ready
-kubectl wait --for=condition=available --timeout=300s deployment/argocd-server -n argocd
-
-# Get initial admin password
-kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d && echo
-
-# Port-forward ArgoCD UI
-kubectl port-forward svc/argocd-server -n argocd 8080:80 &
+echo "ArgoCD: http://$(hostname -I | awk '{print $1}'):$ARGOCD_PORT"
+echo "Username: admin"
+echo "Password: $ARGOCD_PASSWORD"
 ```
-Access ArgoCD UI at: http://localhost:8080
-- Username: admin
-- Password: (from the command above)
 
-### 4. Deploy the Application
+### 5. Deploy Application
 ```bash
-# Create namespace for the application
-kubectl create namespace tasklistapp
+# Push code to trigger CI/CD pipeline
+git push origin main
 
-# Apply ArgoCD application
-kubectl apply -f k8s/argocd-application.yaml
+# Monitor deployment
+kubectl get pods -n tasklist
 ```
 
-### 5. Access the Application
+### 6. Access Application
 ```bash
-# Get the application URL
-kubectl get ingress -n tasklistapp
-
-# Or use port-forwarding
-kubectl port-forward -n tasklistapp svc/tasklistapp-service 8081:80
+# Get application NodePort
+APP_PORT=$(kubectl get svc tasklistapp-service -n tasklist -o jsonpath='{.spec.ports[0].nodePort}')
+echo "Application: http://$(hostname -I | awk '{print $1}'):$APP_PORT/api/tasks"
 ```
-Access the application at: http://localhost:8081
 
-## 🔐 Environment Variables
+## Environment Variables
 
 Create a `.env` file in the project root with the following variables:
 ```env
@@ -92,7 +77,7 @@ DB_PASSWORD=your_secure_password
 JWT_SECRET=your_jwt_secret_key
 
 # Frontend
-REACT_APP_API_URL=http://localhost:8080/api
+REACT_APP_API_URL=http://localhost:8081/api
 ```
 
 ## Automated VM Deployment (Ansible Integration)

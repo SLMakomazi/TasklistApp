@@ -20,10 +20,10 @@ resources:
   - frontend-manifests/nginx-configmap.yaml
   
   # Backend resources
-  - backend-manifests/backend-configmap.yaml
-  - backend-manifests/backend-secrets.yaml
-  - backend-manifests/backend-service.yaml
-  - backend-manifests/backend-deployment.yaml
+  - api-manifests/tasklistapi-configmap.yaml
+  - api-manifests/tasklistapi-secrets.yaml
+  - api-manifests/tasklistapi-service.yaml
+  - api-manifests/tasklistapi-deployment.yaml
   
   # Ingress resources
   - ingress/frontend-ingress.yaml
@@ -72,7 +72,7 @@ patches:
           - name: ghcr-secret
   - target:
       kind: Deployment
-      name: tasklistapp-deployment
+      name: tasklistapi-deployment
     patch: |-
       - op: replace
         path: /spec/selector/matchLabels

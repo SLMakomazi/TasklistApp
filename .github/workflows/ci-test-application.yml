@@ -30,38 +30,31 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
-      - name: Run Unit Tests (Isolated)
+      - name: Run Unit Tests
         working-directory: ./app
         run: |
-          echo "🧪 Running Unit Tests (Individual Test Isolation)..."
-          echo "=== UNIT TESTS - Running one by one ==="
-          mvn test -Dtest=*Test -DfailIfNoTests=false 2>&1 | tee unit-test-output.log
-          if [ ${PIPESTATUS[0]} -ne 0 ]; then
-            echo "❌ UNIT TESTS FAILED"
-            echo "=== UNIT TEST FAILURES (Detailed) ==="
-            grep -E "(FAILURES|ERRORS|Error:|Caused by:|Exception:|<<< FAILURE!)" unit-test-output.log | head -30
-            echo "=== Individual Test Results ==="
-            grep -E "Tests run:|OK|FAILURES|ERRORS" unit-test-output.log
-            echo "==================================="
-            exit 1
-          else
-            echo "✅ All unit tests passed"
-          fi
+          echo "🧪 Running Unit Tests..."
+          mvn test -Dtest=*Test -DfailIfNoTests=false
 
-      - name: Run Integration Tests (Isolated)
+      - name: Run Integration Tests
         working-directory: ./app
         run: |
-          echo "🔗 Running Integration Tests (Individual Test Isolation)..."
-          echo "=== INTEGRATION TESTS - Running one by one ==="
-          mvn test -Dtest=*IntegrationTest -DfailIfNoTests=false 2>&1 | tee integration-test-output.log
-          if [ ${PIPESTATUS[0]} -ne 0 ]; then
-            echo "❌ INTEGRATION TESTS FAILED"
-            echo "=== INTEGRATION TEST FAILURES (Detailed) ==="
-            grep -E "(FAILURES|ERRORS|Error:|Caused by:|Exception:|<<< FAILURE!)" integration-test-output.log | head -30
-            echo "=== Individual Test Results ==="
-            grep -E "Tests run:|OK|FAILURES|ERRORS" integration-test-output.log
-            echo "==================================="
-            exit 1
-          else
-            echo "✅ All integration tests passed"
-          fi
+          echo "🔗 Running Integration Tests..."
+          mvn test -Dtest=*IntegrationTest -DfailIfNoTests=false
+
+      - name: Generate Test Report
+        if: always()
+        working-directory: ./app
+        run: |
+          echo "📊 Generating test report..."
+          mvn surefire-report:report
+
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            app/target/surefire-reports/
+            app/target/site/
+          retention-days: 7

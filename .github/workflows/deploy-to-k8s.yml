@@ -1,0 +1,158 @@
+name: Deploy to Kubernetes
+
+on:
+  workflow_run:
+    workflows: ["Backend CI - Build & Push Image"]
+    types:
+      - completed
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  KUBE_CONFIG: ${{ github.workspace }}/kubeconfig
+  NAMESPACE: tasklist
+
+jobs:
+  deploy:
+    name: Deploy to Kubernetes
+    runs-on: [self-hosted, linux]
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup kubectl
+        run: |
+          # Ensure kubectl is available
+          if ! command -v kubectl &> /dev/null; then
+            echo "kubectl not found, installing..."
+            curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+            chmod +x kubectl
+            sudo mv kubectl /usr/local/bin/
+          fi
+
+      - name: Verify MicroK8s cluster
+        run: |
+          # Check MicroK8s status
+          microk8s status --wait-ready
+          
+          # Configure kubectl to use MicroK8s
+          mkdir -p $HOME/.kube
+          microk8s config > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+          
+          # Verify cluster access
+          kubectl cluster-info
+          kubectl get nodes
+
+      - name: Create namespace
+        run: |
+          kubectl create namespace ${{ env.NAMESPACE }} || true
+
+      - name: Apply Kubernetes manifests
+        run: |
+          echo "🚀 Deploying application to Kubernetes..."
+          
+          # Apply all manifests using kustomize
+          kubectl apply -k k8s/ -n ${{ env.NAMESPACE }}
+          
+          # Wait for deployments to be ready
+          echo "⏳ Waiting for deployments to be ready..."
+          kubectl wait --for=condition=available --timeout=300s deployment -n ${{ env.NAMESPACE }} --all
+          
+          # Show deployment status
+          echo "📊 Deployment Status:"
+          kubectl get pods,svc,ingress -n ${{ env.NAMESPACE }}
+
+      - name: Verify deployment
+        run: |
+          echo "🔍 Verifying deployment..."
+          
+          # Check pod health
+          kubectl get pods -n ${{ env.NAMESPACE }} -o wide
+          
+          # Check services
+          kubectl get services -n ${{ env.NAMESPACE }}
+          
+          # Check ingress if available
+          kubectl get ingress -n ${{ env.NAMESPACE }} || echo "No ingress resources found"
+          
+          # Show application URLs
+          echo "🌐 Application Access:"
+          
+          # Get NodePort services
+          NODE_PORTS=$(kubectl get svc -n ${{ env.NAMESPACE }} --no-headers | grep NodePort | awk '{print $1 ":" $2 ":" $3}')
+          if [ -n "$NODE_PORTS" ]; then
+            echo "NodePort Services:"
+            echo "$NODE_PORTS" | while IFS=':' read -r name type ports; do
+              PORT=$(echo $ports | cut -d':' -f1)
+              echo "  $name: http://$(hostname -I | awk '{print $1}'):$PORT"
+            done
+          fi
+          
+          # Get Ingress hosts
+          INGRESS_HOSTS=$(kubectl get ingress -n ${{ env.NAMESPACE }} -o jsonpath='{.items[*].spec.rules[*].host}' 2>/dev/null || echo "")
+          if [ -n "$INGRESS_HOSTS" ]; then
+            echo "Ingress Hosts:"
+            for host in $INGRESS_HOSTS; do
+              echo "  http://$host"
+            done
+          fi
+
+      - name: Run smoke tests
+        run: |
+          echo "🧪 Running smoke tests..."
+          
+          # Get application endpoint
+          API_ENDPOINT=""
+          
+          # Try to get NodePort for backend service
+          BACKEND_PORT=$(kubectl get svc tasklistapp-service -n ${{ env.NAMESPACE }} -o jsonpath='{.spec.ports[0].nodePort}' 2>/dev/null || echo "")
+          if [ -n "$BACKEND_PORT" ]; then
+            API_ENDPOINT="http://$(hostname -I | awk '{print $1}'):$BACKEND_PORT"
+          fi
+          
+          # If no NodePort, try Ingress
+          if [ -z "$API_ENDPOINT" ]; then
+            INGRESS_HOST=$(kubectl get ingress -n ${{ env.NAMESPACE }} -o jsonpath='{.items[0].spec.rules[0].host}' 2>/dev/null || echo "")
+            if [ -n "$INGRESS_HOST" ]; then
+              API_ENDPOINT="http://$INGRESS_HOST"
+            fi
+          fi
+          
+          if [ -n "$API_ENDPOINT" ]; then
+            echo "Testing endpoint: $API_ENDPOINT"
+            
+            # Test health endpoint
+            if curl -f -s "$API_ENDPOINT/actuator/health" > /dev/null; then
+              echo "✅ Health check passed"
+            else
+              echo "❌ Health check failed"
+              exit 1
+            fi
+            
+            # Test API endpoint
+            if curl -f -s "$API_ENDPOINT/api/tasks" > /dev/null; then
+              echo "✅ API endpoint test passed"
+            else
+              echo "❌ API endpoint test failed"
+              exit 1
+            fi
+          else
+            echo "⚠️ Could not determine API endpoint, skipping smoke tests"
+          fi
+
+      - name: Save kubeconfig
+        if: always()
+        run: |
+          mkdir -p ${{ github.workspace }}/.kube
+          cp ~/.kube/config ${{ env.KUBE_CONFIG }}
+        
+      - name: Upload kubeconfig
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kubeconfig
+          path: ${{ env.KUBE_CONFIG }}
+          if-no-files-found: error
+          retention-days: 1

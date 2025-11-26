@@ -1,40 +1,30 @@
 # 🚀 TasklistApp - Quick Reference
 
-**Status: MicroK8s + ArgoCD Ready | CI/CD: GHCR Active | Deployment: VM + Kubernetes**
+**Status: Zero SSH DevOps Pipeline | Self-Hosted Runner | MicroK8s + ArgoCD | CI/CD: GHCR Active**
 
-## 🎯 One-Minute Setup (Fresh Laptop)
+## 🎯 One-Minute Setup (Fresh Machine)
 
 ```bash
 # 1. Clone repo
-git clone https://github.com/slmakomazi/TasklistApp.git
+git clone https://github.com/SLMakomazi/TasklistApp.git
 cd TasklistApp
 
-# 2. Start MicroK8s (WSL Ubuntu)
-microk8s start
-microk8s enable ingress dns dashboard metrics-server registry hostpath-storage
+# 2. WSL Ubuntu - Automated setup
+chmod +x scripts/setup-microk8s-wsl.sh
+./scripts/setup-microk8s-wsl.sh
+source ~/.bashrc
 
-# 3. Setup kubectl alias
-echo "alias kubectl='microk8s kubectl'" >> ~/.bashrc && source ~/.bashrc
+# 3. Windows - Self-hosted runner (PowerShell Admin)
+cd "C:\Users\F8884374\OneDrive - FRG\Desktop\Projects\TasklistApp\scripts"
+$env:GITHUB_TOKEN = "your_github_token"
+.\install-runner-service.ps1 -RepoOwner "SLMakomazi" -RepoName "TasklistApp"
 
-# 4. Install ArgoCD
-kubectl create namespace argocd
-kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+# 4. Deploy via CI/CD
+git push origin main
 
-# 5. Port-forward ArgoCD (port 9090)
-kubectl port-forward svc/argocd-server -n argocd 9090:443 &
-
-# 6. Get ArgoCD password
-kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
-
-# 7. Access ArgoCD: https://localhost:9090 (admin / password above)
-
-# 8. Deploy app
-kubectl apply -f k8s/argocd-application.yaml
-
-# 9. Port-forward app (port 8080)
-kubectl port-forward -n tasklistapp svc/tasklistapp-service 8080:80 &
-
-# 10. Access: http://localhost:8080/api/tasks
+# 5. Access app
+kubectl get pods -n tasklist
+kubectl port-forward -n tasklist svc/tasklistapp-service 8080:80
 ```
 
 ## 🔧 Key Commands
@@ -45,23 +35,23 @@ microk8s status
 kubectl get nodes
 
 # ArgoCD
-kubectl get applications -n argocd
-kubectl port-forward svc/argocd-server -n argocd 9090:443
+ARGOCD_PORT=$(kubectl get svc argocd-server -n argocd -o jsonpath='{.spec.ports[?(@.name=="http")].nodePort}')
+kubectl port-forward svc/argocd-server -n argocd $ARGOCD_PORT:80
 
 # Application
-kubectl get pods -n tasklistapp
-kubectl port-forward -n tasklistapp svc/tasklistapp-service 8080:80
+kubectl get pods -n tasklist
+kubectl port-forward -n tasklist svc/tasklistapp-service 8080:80
 
 # Logs
-kubectl logs -l app=tasklistapp -n tasklistapp -f
+kubectl logs -l app=tasklistapp -n tasklist -f
 
-# Secrets (base64 encode)
-echo -n "password" | base64
+# Runner service (Windows)
+Get-Service -Name "actions.runner.*"
 ```
 
 ## 🌐 Access URLs
 
-- **ArgoCD**: https://localhost:9090 (admin / [get password])
+- **ArgoCD**: http://$(hostname -I | awk '{print $1}'):$ARGOCD_PORT (admin / get password)
 - **TasklistApp**: http://localhost:8080/api/tasks
 - **Swagger UI**: http://localhost:8080/swagger-ui.html
 - **Health Check**: http://localhost:8080/actuator/health
@@ -71,32 +61,40 @@ echo -n "password" | base64
 - **Backend**: Spring Boot 3.3.4 + Java 17
 - **Database**: PostgreSQL 16 (persistent)
 - **Deployment**: Kubernetes (MicroK8s) + ArgoCD GitOps
-- **CI/CD**: GitHub Actions → GHCR → ArgoCD auto-sync
+- **CI/CD**: GitHub Actions → GHCR → Self-hosted Runner → K8s
 - **Container**: Multi-stage Docker builds
-- **Monitoring**: Health checks, metrics, logging
+- **Testing**: JMeter load testing + comprehensive test suite
+- **Zero SSH**: Self-hosted runner + local kubectl access
 
 ## 🎨 Architecture Flow
 
 ```
-Developer → GitHub → GitHub Actions → GHCR → ArgoCD → MicroK8s → TasklistApp
+Developer → GitHub → CI/CD Pipeline → GHCR → Self-Hosted Runner → MicroK8s → TasklistApp
    ↑                                                              ↓
-   │                                                       Web UI/API
+   │                                                       Web UI/API + ArgoCD
    └─ Code Review ← Pull Request ← Testing ← Build ← Quality Gates
 ```
 
 ## 🚀 Demo Script
 
-1. **Show ArgoCD**: "Here's the GitOps dashboard showing auto-sync"
-2. **Show deployment**: "3 replicas running with health checks"
-3. **Show API**: "Live API with full CRUD operations at http://localhost:8080"
-4. **Show persistence**: "Data survives pod restarts"
-5. **Show CI/CD**: "New commits auto-deploy via ArgoCD"
+1. **Show CI/CD**: "Zero SSH pipeline with self-hosted runner"
+2. **Show ArgoCD**: "GitOps dashboard with auto-sync"
+3. **Show deployment**: "3 replicas with health checks on MicroK8s"
+4. **Show API**: "Live API with full CRUD at http://localhost:8080"
+5. **Show persistence**: "PostgreSQL data survives pod restarts"
+6. **Show load testing**: "JMeter performance testing integrated"
 
 ## 🔧 Troubleshooting
 
-- **kubectl fails**: `microk8s kubectl` or check alias
-- **ArgoCD sync fails**: Check secrets base64 encoding
+- **kubectl fails**: Use `microk8s kubectl` or check alias
+- **Runner service**: `Get-Service -Name "actions.runner.*"` in PowerShell
+- **ArgoCD sync**: Check secrets base64 encoding and namespace
 - **Pods crash**: `kubectl describe pod` + `kubectl logs`
-- **Port conflicts**: Use 9090 for ArgoCD, 8080 for app
+- **Port conflicts**: Use NodePort services instead of port-forward
 
-**Ready for production with GitOps, health checks, and auto-scaling!** 🚀
+## 📋 GitHub Repository Secrets Required
+
+- `GITHUB_TOKEN` - GitHub personal access token
+- `SUDO_PASSWORD` - WSL Ubuntu sudo password (for runner)
+
+**Zero SSH deployment ready with GitOps, health checks, auto-scaling, and comprehensive monitoring!** 🚀

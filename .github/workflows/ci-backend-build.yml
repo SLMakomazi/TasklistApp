@@ -2,7 +2,7 @@ name: Backend CI - Build & Push Image
 
 on:
   workflow_run:
-    workflows: ["Frontend CI - Build & Push Image"]
+    workflows: ["CI - Test Application"]
     types:
       - completed
   workflow_dispatch:

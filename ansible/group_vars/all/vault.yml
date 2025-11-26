@@ -1,0 +1,25 @@
+---
+# Ansible Vault Variables for TasklistApp
+# Encrypt this file with: ansible-vault encrypt group_vars/all/vault.yml
+
+# Database credentials
+db_root_password: "secure_root_password_change_me"
+db_name: "tasklistdb"
+db_user: "tasklist_user"
+db_password: "secure_db_password_change_me"
+
+# Application secrets
+spring_datasource_url: "jdbc:postgresql://tasklist-db:5432/{{ db_name }}"
+spring_datasource_username: "{{ db_user }}"
+spring_datasource_password: "{{ db_password }}"
+
+# GitHub Container Registry credentials
+ghcr_username: "{{ github_actor }}"
+ghcr_password: "{{ github_token }}"
+
+# ArgoCD credentials
+argocd_admin_password: "admin123"
+
+# JMeter configuration
+jmeter_host: "localhost"
+jmeter_port: "8080"
