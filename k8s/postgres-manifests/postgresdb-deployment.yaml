@@ -38,11 +38,9 @@ spec:
           containerPort: 5432
           protocol: TCP
         env:
+        # This tells Postgres to create the 'tasklistdb' database on first run
         - name: POSTGRES_DB
-          valueFrom:
-            configMapKeyRef:
-              name: postgresdb-config
-              key: POSTGRES_DB
+          value: tasklistdb
         - name: POSTGRES_USER
           valueFrom:
             secretKeyRef:
