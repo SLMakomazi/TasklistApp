@@ -6,17 +6,10 @@ on:
     types: [completed]
   workflow_dispatch:
 
-env:
-  TARGET_DIR: /opt/tasklistapp
-  KUBE_CONFIG: ${{ github.workspace }}/kubeconfig
-  ARGOCD_ADMIN_PASSWORD: admin123  # Change this in production
-  NAMESPACE: tasklist
-
 jobs:
-  deploy:
-    name: Deploy Full Stack
+  deploy-infrastructure:
+    name: Deploy Infrastructure
     runs-on: [self-hosted, linux]
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -24,8 +17,8 @@ jobs:
       - name: Set up environment
         run: |
           # Create target directory
-          echo ${{ secrets.SUDO_PASSWORD }} | sudo -S mkdir -p ${{ env.TARGET_DIR }}
-          echo ${{ secrets.SUDO_PASSWORD }} | sudo -S chown -R $USER:$USER ${{ env.TARGET_DIR }}
+          echo ${{ secrets.SUDO_PASSWORD }} | sudo -S mkdir -p /opt/tasklistapp
+          echo ${{ secrets.SUDO_PASSWORD }} | sudo -S chown -R $USER:$USER /opt/tasklistapp
           
           # Install required packages
           echo ${{ secrets.SUDO_PASSWORD }} | sudo -S apt-get update -y
@@ -113,15 +106,15 @@ jobs:
             echo "✅ kubectl installed successfully"
           fi
           
-          # Check if JMeter is already installed
+          # Install JMeter and additional tools
           if command -v jmeter &> /dev/null; then
             echo "✅ JMeter is already installed, skipping installation"
             jmeter --version
           else
             echo "🔧 Installing JMeter and additional tools..."
-            # Install JMeter and additional tools
+            # Install JMeter and additional tools including apache2-utils for htpasswd
             echo ${{ secrets.SUDO_PASSWORD }} | sudo -S apt-get update
-            echo ${{ secrets.SUDO_PASSWORD }} | sudo -S apt-get install -y jmeter jq tree htop
+            echo ${{ secrets.SUDO_PASSWORD }} | sudo -S apt-get install -y jmeter jq tree htop apache2-utils
             echo "✅ JMeter and additional tools installed successfully"
           fi
           
@@ -214,7 +207,7 @@ jobs:
           echo "🔧 Setting ArgoCD admin password..."
           kubectl -n argocd patch secret argocd-secret \
             -p '{"stringData": {
-              "admin.password": "'$(htpasswd -bnBC 10 "" ${{ env.ARGOCD_ADMIN_PASSWORD }} | tr -d ':\n')'",
+              "admin.password": "'$(htpasswd -bnBC 10 "" admin123 | tr -d ':\n')'",
               "admin.passwordMtime": "'$(date +%FT%T%Z)'"
             }}' \
             --type=merge || echo "⚠️ Could not update ArgoCD password"
@@ -224,11 +217,11 @@ jobs:
           echo "ArgoCD is available at: http://$(hostname -I | awk '{print $1}'):$ARGOCD_PORT"
           
           # Create application namespace
-          if kubectl get namespace ${{ env.NAMESPACE }} >/dev/null 2>&1; then
+          if kubectl get namespace tasklist >/dev/null 2>&1; then
             echo "✅ Application namespace already exists"
           else
             echo "🔧 Creating application namespace..."
-            kubectl create namespace ${{ env.NAMESPACE }}
+            kubectl create namespace tasklist
           fi
           
           # Check if ArgoCD application already exists
@@ -236,174 +229,94 @@ jobs:
             echo "✅ ArgoCD application already exists"
           else
             echo "🔧 Creating ArgoCD application..."
-            # Create ArgoCD application
-            cat <<EOF | kubectl apply -f -
-            apiVersion: argoproj.io/v1alpha1
-            kind: Application
-            metadata:
-              name: tasklist-app
-              namespace: argocd
-            spec:
-              project: default
-              source:
-                repoURL: ${{ github.server_url }}/${{ github.repository }}.git
-                targetRevision: HEAD
-                path: k8s  # Path to your Kubernetes manifests
-              destination:
-                server: https://kubernetes.default.svc
-                namespace: ${{ env.NAMESPACE }}
-              syncPolicy:
-                automated:
-                  prune: true
-                  selfHeal: true
-                syncOptions:
-                  - CreateNamespace=true
-            EOF
+            kubectl apply -f - <<EOF
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: tasklist-app
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: ${{ github.server_url }}/${{ github.repository }}.git
+    targetRevision: HEAD
+    path: k8s
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: tasklist
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+EOF
             echo "✅ ArgoCD application created"
           fi
           
           echo "✅ ArgoCD setup completed"
-      
-      - name: Install and Configure JMeter
+
+      - name: Save kubeconfig
+        if: always()
         run: |
-          # JMeter is already installed, create test directory
-          mkdir -p ${{ env.TARGET_DIR }}/jmeter
+          mkdir -p ${{ github.workspace }}/.kube
+          cp ~/.kube/config ${{ github.workspace }}/kubeconfig
+
+      - name: Upload kubeconfig
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kubeconfig
+          path: ${{ github.workspace }}/kubeconfig
+          if-no-files-found: error
+          retention-days: 1
+
+  deploy-application:
+    name: Deploy Application
+    runs-on: [self-hosted, linux]
+    needs: deploy-infrastructure
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download kubeconfig
+        uses: actions/download-artifact@v4
+        with:
+          name: kubeconfig
+          path: ${{ github.workspace }}/kubeconfig
+
+      - name: Set up kubectl
+        run: |
+          # Set up kubectl to use downloaded kubeconfig
+          export KUBECONFIG=${{ github.workspace }}/kubeconfig
+          kubectl cluster-info
+          echo "✅ kubectl configured"
+
+      - name: Create JMeter Test Plan
+        run: |
+          # Create test directory
+          mkdir -p /opt/tasklistapp/jmeter
           
-          # Create a sample JMeter test plan
-          cat > ${{ env.TARGET_DIR }}/jmeter/load-test.jmx << 'EOL'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <jmeterTestPlan version="1.2" properties="5.0" jmeter="5.4.1">
-            <hashTree>
-              <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Tasklist Load Test" enabled="true">
-                <elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true">
-                  <collectionProp name="Arguments.arguments">
-                    <elementProp name="HOST" elementType="Argument">
-                      <stringProp name="Argument.name">HOST</stringProp>
-                      <stringProp name="Argument.value">localhost</stringProp>
-                      <stringProp name="Argument.desc">Server name or IP</stringProp>
-                      <stringProp name="Argument.metadata">=</stringProp>
-                    </elementProp>
-                    <elementProp name="PORT" elementType="Argument">
-                      <stringProp name="Argument.name">PORT</stringProp>
-                      <stringProp name="Argument.value">80</stringProp>
-                      <stringProp name="Argument.desc">Port number</stringProp>
-                      <stringProp name="Argument.metadata">=</stringProp>
-                    </elementProp>
-                  </collectionProp>
-                </elementProp>
-                <stringProp name="TestPlan.user_define_classpath"></stringProp>
-              </TestPlan>
-              <hashTree>
-                <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Tasklist Users" enabled="true">
-                  <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller" enabled="true">
-                    <boolProp name="LoopController.continue_forever">false</boolProp>
-                    <stringProp name="LoopController.loops">5</stringProp>
-                  </elementProp>
-                  <stringProp name="ThreadGroup.num_threads">10</stringProp>
-                  <stringProp name="ThreadGroup.ramp_time">10</stringProp>
-                  <boolProp name="ThreadGroup.scheduler">false</boolProp>
-                  <stringProp name="ThreadGroup.duration"></stringProp>
-                  <stringProp name="ThreadGroup.delay"></stringProp>
-                  <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
-                </ThreadGroup>
-                <hashTree>
-                  <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Get Tasks" enabled="true">
-                    <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true">
-                      <collectionProp name="Arguments.arguments"/>
-                    </elementProp>
-                    <stringProp name="HTTPSampler.domain">${HOST}</stringProp>
-                    <stringProp name="HTTPSampler.port">${PORT}</stringProp>
-                    <stringProp name="HTTPSampler.protocol">http</stringProp>
-                    <stringProp name="HTTPSampler.path">/api/tasks</stringProp>
-                    <stringProp name="HTTPSampler.method">GET</stringProp>
-                    <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
-                    <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
-                    <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
-                    <boolProp name="HTTPSampler.DO_MULTIPART_POST">false</boolProp>
-                    <stringProp name="HTTPSampler.implementation">HttpClient4</stringProp>
-                    <stringProp name="HTTPSampler.connect_timeout"></stringProp>
-                    <stringProp name="HTTPSampler.response_timeout"></stringProp>
-                  </HTTPSamplerProxy>
-                  <hashTree>
-                    <ResultCollector guiclass="ViewResultsFullVisualizer" testclass="ResultCollector" testname="View Results Tree" enabled="true">
-                      <boolProp name="ResultCollector.error_logging">false</boolProp>
-                      <objProp>
-                        <name>saveConfig</name>
-                        <value class="SampleSaveConfiguration">
-                          <time>true</time>
-                          <latency>true</latency>
-                          <timestamp>true</timestamp>
-                          <success>true</success>
-                          <label>true</label>
-                          <code>true</code>
-                          <message>true</message>
-                          <threadName>true</threadName>
-                          <dataType>true</dataType>
-                          <encoding>false</encoding>
-                          <assertions>true</assertions>
-                          <subresults>true</subresults>
-                          <requestData>false</requestData>
-                          <responseData>false</responseData>
-                          <responseHeaders>false</responseHeaders>
-                          <requestHeaders>false</requestHeaders>
-                          <responseDataOnError>false</responseDataOnError>
-                          <saveAssertionResultsFailureMessage>true</saveAssertionResultsFailureMessage>
-                          <assertionsResultsToSave>0</assertionsResultsToSave>
-                          <bytes>true</bytes>
-                          <sentBytes>true</sentBytes>
-                          <url>true</url>
-                          <threadCounts>true</threadCounts>
-                          <idleTime>true</idleTime>
-                          <connectTime>true</connectTime>
-                        </value>
-                      </objProp>
-                      <stringProp name="filename"></stringProp>
-                    </ResultCollector>
-                    <hashTree/>
-                    <ResultCollector guiclass="SummaryReport" testclass="ResultCollector" testname="Summary Report" enabled="true">
-                      <boolProp name="ResultCollector.error_logging">false</boolProp>
-                      <objProp>
-                        <name>saveConfig</name>
-                        <value class="SampleSaveConfiguration">
-                          <time>true</time>
-                          <latency>true</latency>
-                          <timestamp>true</timestamp>
-                          <success>true</success>
-                          <label>true</label>
-                          <code>true</code>
-                          <message>true</message>
-                          <threadName>true</threadName>
-                          <dataType>true</dataType>
-                          <encoding>false</encoding>
-                          <assertions>true</assertions>
-                          <subresults>true</subresults>
-                          <requestData>false</requestData>
-                          <responseData>false</responseData>
-                          <responseHeaders>false</responseHeaders>
-                          <requestHeaders>false</requestHeaders>
-                          <responseDataOnError>false</responseDataOnError>
-                          <saveAssertionResultsFailureMessage>true</saveAssertionResultsFailureMessage>
-                          <assertionsResultsToSave>0</assertionsResultsToSave>
-                          <bytes>true</bytes>
-                          <sentBytes>true</sentBytes>
-                          <url>true</url>
-                          <threadCounts>true</threadCounts>
-                          <idleTime>true</idleTime>
-                          <connectTime>true</connectTime>
-                        </value>
-                      </objProp>
-                      <stringProp name="filename"></stringProp>
-                    </ResultCollector>
-                    <hashTree/>
-                  </hashTree>
-                </hashTree>
-              </hashTree>
-            </hashTree>
-          </jmeterTestPlan>
-          EOL
+          # Create JMeter test plan using echo statements
+          echo '<?xml version="1.0" encoding="UTF-8"?>' > /opt/tasklistapp/jmeter/load-test.jmx
+          echo '<jmeterTestPlan version="1.2" properties="5.0" jmeter="5.4.1">' >> /opt/tasklistapp/jmeter/load-test.jmx
+          echo '  <hashTree>' >> /opt/tasklistapp/jmeter/load-test.jmx
+          echo '    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Tasklist Load Test" enabled="true">' >> /opt/tasklistapp/jmeter/load-test.jmx
+          echo '      <stringProp name="TestPlan.user_define_classpath"></stringProp>' >> /opt/tasklistapp/jmeter/load-test.jmx
+          echo '    </TestPlan>' >> /opt/tasklistapp/jmeter/load-test.jmx
+          echo '    <hashTree>' >> /opt/tasklistapp/jmeter/load-test.jmx
+          echo '      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Tasklist Users" enabled="true">' >> /opt/tasklistapp/jmeter/load-test.jmx
+          echo '        <stringProp name="ThreadGroup.num_threads">10</stringProp>' >> /opt/tasklistapp/jmeter/load-test.jmx
+          echo '        <stringProp name="ThreadGroup.ramp_time">10</stringProp>' >> /opt/tasklistapp/jmeter/load-test.jmx
+          echo '        <stringProp name="ThreadGroup.loops">5</stringProp>' >> /opt/tasklistapp/jmeter/load-test.jmx
+          echo '      </ThreadGroup>' >> /opt/tasklistapp/jmeter/load-test.jmx
+          echo '      <hashTree/>' >> /opt/tasklistapp/jmeter/load-test.jmx
+          echo '    </hashTree>' >> /opt/tasklistapp/jmeter/load-test.jmx
+          echo '  </hashTree>' >> /opt/tasklistapp/jmeter/load-test.jmx
+          echo '</jmeterTestPlan>' >> /opt/tasklistapp/jmeter/load-test.jmx
           
-          echo "JMeter test plan created at ${{ env.TARGET_DIR }}/jmeter/load-test.jmx"
-          
+          echo "✅ JMeter test plan created"
+
       - name: Build and Deploy Application
         working-directory: ${{ github.workspace }}
         env:
@@ -415,13 +328,11 @@ jobs:
           else
             echo "No docker-compose.build.yml found, skipping build"
           fi
-          
-          # If you have a container registry, push the images here
-          # docker tag app:latest your-registry/app:latest
-          # docker push your-registry/app:latest
 
       - name: Verify Deployment
         run: |
+          export KUBECONFIG=${{ github.workspace }}/kubeconfig
+          
           echo "=== Kubernetes Status ==="
           kubectl get all --all-namespaces
           
@@ -431,15 +342,15 @@ jobs:
           
           echo "ArgoCD is available at: http://$ARGOCD_IP:$ARGOCD_PORT"
           echo "ArgoCD Username: admin"
-          echo "ArgoCD Password: ${{ env.ARGOCD_ADMIN_PASSWORD }}"
+          echo "ArgoCD Password: admin123"
           
           echo -e "\n=== Application Status ==="
-          kubectl get pods,svc,ingress -n ${{ env.NAMESPACE }}
+          kubectl get pods,svc,ingress -n tasklist
           
           # Get application URL
-          APP_INGRESS=$(kubectl get ingress -n ${{ env.NAMESPACE }} -o jsonpath='{.items[0].spec.rules[0].host}' 2>/dev/null || echo "")
+          APP_INGRESS=$(kubectl get ingress -n tasklist -o jsonpath='{.items[0].spec.rules[0].host}' 2>/dev/null || echo "")
           if [ -z "$APP_INGRESS" ]; then
-            NODE_PORT=$(kubectl get svc -n ${{ env.NAMESPACE }} -o jsonpath='{.items[?(@.spec.type=="NodePort")].spec.ports[0].nodePort}' 2>/dev/null || echo "")
+            NODE_PORT=$(kubectl get svc -n tasklist -o jsonpath='{.items[?(@.spec.type=="NodePort")].spec.ports[0].nodePort}' 2>/dev/null || echo "")
             if [ -n "$NODE_PORT" ]; then
               echo -e "\n=== Application URL ==="
               echo "Application is available at: http://$ARGOCD_IP:$NODE_PORT"
@@ -453,20 +364,12 @@ jobs:
           fi
           
           echo -e "\n=== JMeter Test Plan ==="
-          echo "JMeter test plan is available at: ${{ env.TARGET_DIR }}/jmeter/load-test.jmx"
-          echo "Run tests with: jmeter -n -t ${{ env.TARGET_DIR }}/jmeter/load-test.jmx -l ${{ env.TARGET_DIR }}/jmeter/results.jtl -J HOST=$ARGOCD_IP -J PORT=$NODE_PORT"
+          echo "JMeter test plan is available at: /opt/tasklistapp/jmeter/load-test.jmx"
 
-      - name: Save kubeconfig
-        if: always()
-        run: |
-          mkdir -p ${{ github.workspace }}/.kube
-          cp ~/.kube/config ${{ env.KUBE_CONFIG }}
-        
-      - name: Upload kubeconfig
-        if: always()
+      - name: Upload JMeter Test Plan
         uses: actions/upload-artifact@v4
         with:
-          name: kubeconfig
-          path: ${{ env.KUBE_CONFIG }}
+          name: jmeter-test-plan
+          path: /opt/tasklistapp/jmeter/load-test.jmx
           if-no-files-found: error
-          retention-days: 1
+          retention-days: 7
