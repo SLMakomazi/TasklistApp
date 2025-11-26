@@ -155,12 +155,28 @@ jobs:
           # Install ArgoCD using fixed kubeconfig
           kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig create namespace argocd --dry-run=client -o yaml | kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig apply -f -
           kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-          
-          # Wait for ArgoCD to be ready
+
+      - name: Wait for ArgoCD to be ready
+        run: |
           echo "⏳ Waiting for ArgoCD to be ready..."
-          kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig wait --for=condition=available --timeout=300s deployment/argocd-server -n argocd
-          kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig wait --for=condition=available --timeout=300s deployment/argocd-repo-server -n argocd
-          kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig wait --for=condition=available --timeout=300s deployment/argocd-application-controller -n argocd
+          
+          # Wait for deployments to be created first
+          echo "🔍 Waiting for deployments to be created..."
+          for i in {1..10}; do
+            if kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig get deployment argocd-application-controller -n argocd >/dev/null 2>&1; then
+              echo "✅ argocd-application-controller found"
+              break
+            else
+              echo "⏳ Waiting for argocd-application-controller... ($i/10)"
+              sleep 15
+            fi
+          done
+          
+          # Now wait for deployments to be ready
+          echo "🔍 Waiting for deployments to be ready..."
+          kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig wait --for=condition=available deployment/argocd-server -n argocd --timeout=300s
+          kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig wait --for=condition=available deployment/argocd-repo-server -n argocd --timeout=300s
+          kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig wait --for=condition=available deployment/argocd-application-controller -n argocd --timeout=300s
           
           # Configure ArgoCD with NodePort for external access
           kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig patch svc argocd-server -n argocd -p '{"spec":{"type":"NodePort","ports":[{"name":"http","port":80,"targetPort":8080,"nodePort":30007},{"name":"https","port":443,"targetPort":8080,"nodePort":30008}]}}'
