@@ -163,7 +163,7 @@ jobs:
           # Wait for deployments to be created first
           echo "🔍 Waiting for deployments to be created..."
           for i in {1..10}; do
-            if kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig get deployment argocd-application-controller -n argocd >/dev/null 2>&1; then
+            if kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig get statefulset argocd-application-controller -n argocd >/dev/null 2>&1; then
               echo "✅ argocd-application-controller found"
               break
             else
@@ -173,8 +173,8 @@ jobs:
           done
           
           # Check if deployment exists after waiting
-          if ! kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig get deployment argocd-application-controller -n argocd >/dev/null 2>&1; then
-            echo "❌ argocd-application-controller deployment not found after waiting"
+          if ! kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig get statefulset argocd-application-controller -n argocd >/dev/null 2>&1; then
+            echo "❌ argocd-application-controller statefulset not found after waiting"
             echo "🔍 Troubleshooting information:"
             echo "Available deployments in argocd namespace:"
             kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig get deployments -n argocd || echo "No deployments found"
@@ -205,9 +205,9 @@ jobs:
             exit 1
           }
           
-          kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig wait --for=condition=available deployment/argocd-application-controller -n argocd --timeout=300s || {
-            echo "❌ argocd-application-controller failed to become available"
-            kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig describe deployment argocd-application-controller -n argocd
+          kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig wait --for=condition=available statefulset/argocd-application-controller -n argocd --timeout=300s || {
+            echo "❌ argocd-application-controller failed to become ready"
+            kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig describe statefulset argocd-application-controller -n argocd
             kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig get pods -n argocd -l app.kubernetes.io/name=argocd-application-controller
             kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig logs -n argocd -l app.kubernetes.io/name=argocd-application-controller --tail=20
             exit 1
