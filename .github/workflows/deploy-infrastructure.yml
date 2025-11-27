@@ -205,7 +205,7 @@ jobs:
             exit 1
           }
           
-          kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig wait --for=condition=available statefulset/argocd-application-controller -n argocd --timeout=300s || {
+          kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-application-controller -n argocd --timeout=300s || {
             echo "❌ argocd-application-controller failed to become ready"
             kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig describe statefulset argocd-application-controller -n argocd
             kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig get pods -n argocd -l app.kubernetes.io/name=argocd-application-controller
