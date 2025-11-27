@@ -3,7 +3,7 @@ name: Deploy Infrastructure
 on:
   workflow_dispatch:
   workflow_run:
-    workflows: ["version-management"]
+    workflows: ["Version Management - Tag Images"]
     types: [completed]
 
 jobs:
