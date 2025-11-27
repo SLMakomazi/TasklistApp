@@ -14,7 +14,7 @@ permissions:
 
 env:
   KUBE_CONFIG: ${{ github.workspace }}/kubeconfig
-  NAMESPACE: tasklist
+  NAMESPACE: tasklistapp
   # Environment variables from GitHub secrets
   DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
   DB_USERNAME: ${{ secrets.DB_USERNAME }}
@@ -138,10 +138,12 @@ jobs:
             echo "❌ k8s/ directory not found"
             exit 1
           fi
-          
           echo "✅ Kubernetes manifests found"
           
-          # Apply manifests in order from your k8s directory structure
+          # Delete existing database deployment to fix immutable selector issue
+          echo "🔧 Deleting existing database deployment to fix selector issue..."
+          kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig delete deployment postgresdb-deployment -n ${{ env.NAMESPACE }} --ignore-not-found=true
+          
           echo "🔧 Applying Kubernetes manifests in order..."
           
           # Apply namespace first (skip if already exists)
