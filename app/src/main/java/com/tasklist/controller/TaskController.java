@@ -22,9 +22,9 @@ public class TaskController {
     // List all tasks (sorted by due date)
     @GetMapping
     public List<Task> getAllTasks() {
-        log.info('Received request to get all tasks.');
+        log.info("Received request to get all tasks.");
         List<Task> tasks = taskRepository.findAllByOrderByDueDateAsc();
-        log.info('Returning {} tasks from repository.', tasks.size());
+        log.info("Returning {} tasks from repository.", tasks.size());
         return tasks;
     }
 
@@ -37,14 +37,14 @@ public class TaskController {
     // Create a new task
     @PostMapping
     public Task createTask(@RequestBody Task task) {
-        log.info('Received request to save task: {}', task);
+        log.info("Received request to save task: {}", task);
         // Handle frontend sending 'text' field instead of 'title'
         if (task.getTitle() == null && task.getText() != null) {
             task.setTitle(task.getText());
         }
-        log.info('Attempting to save task to repository: {}', task);
+        log.info("Attempting to save task to repository: {}", task);
         Task savedTask = taskRepository.save(task);
-        log.info('Successfully saved task with ID: {}', savedTask.getId());
+        log.info("Successfully saved task with ID: {}", savedTask.getId());
         return savedTask;
     }
 
