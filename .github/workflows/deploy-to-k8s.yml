@@ -148,7 +148,7 @@ jobs:
           echo "⏳ Waiting for deployment to be fully deleted..."
           kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig wait --for=delete deployment/postgresdb-deployment -n ${{ env.NAMESPACE }} --timeout=60s || true
           
-          # Check if ArgoCD is recreating it
+          # Check if ArgoCD is recreating 
           echo "🔍 Checking if deployment still exists (ArgoCD might recreate it)..."
           if kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig get deployment postgresdb-deployment -n ${{ env.NAMESPACE }} >/dev/null 2>&1; then
             echo "⚠️ Deployment still exists - likely managed by ArgoCD"
