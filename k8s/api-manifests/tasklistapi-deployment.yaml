@@ -54,7 +54,12 @@ spec:
               memory: "512Mi"
               cpu: "500m"
           env:
-            # 1. Inject DB credentials from tasklistapp-secrets (Matches Postgres setup)
+            # 1. DB connection link (The missing variable we identified)
+            #    We are making the DB_URL explicit here using the Service DNS name.
+            - name: DB_URL
+              value: jdbc:postgresql://postgresdb-service.tasklistapp.svc.cluster.local:5432/tasklistdb
+              
+            # 2. Inject DB credentials from tasklistapp-secrets
             - name: DB_USERNAME
               valueFrom:
                 secretKeyRef:
@@ -65,20 +70,8 @@ spec:
                 secretKeyRef:
                   name: tasklistapp-secrets
                   key: db-password
-            
-            # 2. Inject DB_HOST and DB_NAME from the tasklistapi-secrets (The one that has these keys)
-            - name: DB_HOST
-              valueFrom:
-                secretKeyRef:
-                  name: tasklistapi-secrets
-                  key: DB_HOST
-            - name: DB_NAME
-              valueFrom:
-                secretKeyRef:
-                  name: tasklistapi-secrets
-                  key: DB_NAME
-            
-            # 3. Enable Hibernate DDL auto-update for schema creation
+                  
+            # 3. Explicitly setting JPA DDL auto-update for schema creation (The fix for missing tables)
             - name: JPA_DDL_AUTO
               value: update
 
