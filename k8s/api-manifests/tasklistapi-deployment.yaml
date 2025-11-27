@@ -71,7 +71,11 @@ spec:
                   name: tasklistapp-secrets
                   key: db-password
                   
-            # 3. Explicitly setting JPA DDL auto-update for schema creation (The fix for missing tables)
+            # 3. ** CRITICAL FIX: EXPLICITLY SET DB_HOST **
+            - name: DB_HOST
+              value: postgresdb-service.tasklistapp.svc.cluster.local
+              
+            # 4. Explicitly setting JPA DDL auto-update for schema creation (The fix for missing tables)
             - name: JPA_DDL_AUTO
               value: update
 
