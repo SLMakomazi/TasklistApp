@@ -143,7 +143,21 @@ jobs:
           # Delete existing database deployment to fix immutable selector issue
           echo "🔧 Deleting existing database deployment to fix selector issue..."
           kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig delete deployment postgresdb-deployment -n ${{ env.NAMESPACE }} --ignore-not-found=true --force --grace-period=0 || true
-          echo "✅ Database deployment deletion attempted"
+          
+          # Wait for deployment to be fully deleted
+          echo "⏳ Waiting for deployment to be fully deleted..."
+          kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig wait --for=delete deployment/postgresdb-deployment -n ${{ env.NAMESPACE }} --timeout=60s || true
+          
+          # Check if ArgoCD is recreating it
+          echo "🔍 Checking if deployment still exists (ArgoCD might recreate it)..."
+          if kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig get deployment postgresdb-deployment -n ${{ env.NAMESPACE }} >/dev/null 2>&1; then
+            echo "⚠️ Deployment still exists - likely managed by ArgoCD"
+            echo "🔧 Temporarily scaling down to 0 replicas..."
+            kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig scale deployment postgresdb-deployment -n ${{ env.NAMESPACE }} --replicas=0 || true
+            sleep 10
+          fi
+          
+          echo "✅ Database deployment deletion completed"
           
           echo "🔧 Applying Kubernetes manifests in order..."
           
