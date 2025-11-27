@@ -35,25 +35,37 @@ jobs:
         run: |
           echo "Retagging previous API version ${{ steps.version.outputs.PREVIOUS_RUN }} as pv1..."
           
-          # Pull previous API image
-          docker pull ghcr.io/slmakomazi/tasklistapp:api-${{ steps.version.outputs.PREVIOUS_RUN }}
-          
-          # Retag as pv1
-          docker tag ghcr.io/slmakomazi/tasklistapp:api-${{ steps.version.outputs.PREVIOUS_RUN }} ghcr.io/slmakomazi/tasklistapp:api-pv1
-          
-          # Push pv1 tag
-          docker push ghcr.io/slmakomazi/tasklistapp:api-pv1
+          # Check if previous API image exists before pulling
+          if docker manifest inspect ghcr.io/slmakomazi/tasklistapp:api-${{ steps.version.outputs.PREVIOUS_RUN }} >/dev/null 2>&1; then
+            echo "Previous API image found, retagging..."
+            # Pull previous API image
+            docker pull ghcr.io/slmakomazi/tasklistapp:api-${{ steps.version.outputs.PREVIOUS_RUN }}
+            
+            # Retag as pv1
+            docker tag ghcr.io/slmakomazi/tasklistapp:api-${{ steps.version.outputs.PREVIOUS_RUN }} ghcr.io/slmakomazi/tasklistapp:api-pv1
+            
+            # Push pv1 tag
+            docker push ghcr.io/slmakomazi/tasklistapp:api-pv1
+          else
+            echo "Previous API image not found, skipping pv1 retag"
+          fi
           
           echo "Retagging previous Frontend version ${{ steps.version.outputs.PREVIOUS_RUN }} as pv1..."
           
-          # Pull previous frontend image
-          docker pull ghcr.io/slmakomazi/tasklistapp:frontend-${{ steps.version.outputs.PREVIOUS_RUN }}
-          
-          # Retag as pv1
-          docker tag ghcr.io/slmakomazi/tasklistapp:frontend-${{ steps.version.outputs.PREVIOUS_RUN }} ghcr.io/slmakomazi/tasklistapp:frontend-pv1
-          
-          # Push pv1 tag
-          docker push ghcr.io/slmakomazi/tasklistapp:frontend-pv1
+          # Check if previous Frontend image exists before pulling
+          if docker manifest inspect ghcr.io/slmakomazi/tasklistapp:frontend-${{ steps.version.outputs.PREVIOUS_RUN }} >/dev/null 2>&1; then
+            echo "Previous Frontend image found, retagging..."
+            # Pull previous frontend image
+            docker pull ghcr.io/slmakomazi/tasklistapp:frontend-${{ steps.version.outputs.PREVIOUS_RUN }}
+            
+            # Retag as pv1
+            docker tag ghcr.io/slmakomazi/tasklistapp:frontend-${{ steps.version.outputs.PREVIOUS_RUN }} ghcr.io/slmakomazi/tasklistapp:frontend-pv1
+            
+            # Push pv1 tag
+            docker push ghcr.io/slmakomazi/tasklistapp:frontend-pv1
+          else
+            echo "Previous Frontend image not found, skipping pv1 retag"
+          fi
 
       - name: Ensure current version is tagged as latest
         run: |
