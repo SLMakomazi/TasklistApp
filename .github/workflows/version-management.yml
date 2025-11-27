@@ -66,6 +66,23 @@ jobs:
           else
             echo "Previous Frontend image not found, skipping pv1 retag"
           fi
+          
+          echo "Retagging previous Database version ${{ steps.version.outputs.PREVIOUS_RUN }} as pv1..."
+          
+          # Check if previous Database image exists before pulling
+          if docker manifest inspect ghcr.io/slmakomazi/tasklistapp:db-${{ steps.version.outputs.PREVIOUS_RUN }} >/dev/null 2>&1; then
+            echo "Previous Database image found, retagging..."
+            # Pull previous database image
+            docker pull ghcr.io/slmakomazi/tasklistapp:db-${{ steps.version.outputs.PREVIOUS_RUN }}
+            
+            # Retag as pv1
+            docker tag ghcr.io/slmakomazi/tasklistapp:db-${{ steps.version.outputs.PREVIOUS_RUN }} ghcr.io/slmakomazi/tasklistapp:db-pv1
+            
+            # Push pv1 tag
+            docker push ghcr.io/slmakomazi/tasklistapp:db-pv1
+          else
+            echo "Previous Database image not found, skipping pv1 retag"
+          fi
 
       - name: Ensure current version is tagged as latest
         run: |
@@ -102,6 +119,23 @@ jobs:
           else
             echo "Current Frontend image not found, skipping latest tag"
           fi
+          
+          echo "Ensuring current Database version ${{ steps.version.outputs.CURRENT_RUN }} is tagged as latest..."
+          
+          # Check if current Database image exists before pulling
+          if docker manifest inspect ghcr.io/slmakomazi/tasklistapp:db-${{ steps.version.outputs.CURRENT_RUN }} >/dev/null 2>&1; then
+            echo "Current Database image found, tagging as latest..."
+            # Pull current database image
+            docker pull ghcr.io/slmakomazi/tasklistapp:db-${{ steps.version.outputs.CURRENT_RUN }}
+            
+            # Tag as latest
+            docker tag ghcr.io/slmakomazi/tasklistapp:db-${{ steps.version.outputs.CURRENT_RUN }} ghcr.io/slmakomazi/tasklistapp:db-latest
+            
+            # Push latest tag
+            docker push ghcr.io/slmakomazi/tasklistapp:db-latest
+          else
+            echo "Current Database image not found, skipping latest tag"
+          fi
 
       - name: Clean up old numbered tags (keep only latest and pv1)
         run: |
@@ -120,6 +154,13 @@ jobs:
             echo "Removing Frontend tag: frontend-$OLD_FRONTEND_RUN"
             docker rmi ghcr.io/slmakomazi/tasklistapp:frontend-$OLD_FRONTEND_RUN || true
           fi
+          
+          # Remove Database tags older than pv1 (keep current and previous)  
+          OLD_DB_RUN=$(( ${{ github.run_number }} - 2 ))
+          if [ $OLD_DB_RUN -gt 0 ]; then
+            echo "Removing Database tag: db-$OLD_DB_RUN"
+            docker rmi ghcr.io/slmakomazi/tasklistapp:db-$OLD_DB_RUN || true
+          fi
 
       - name: Display current tags
         run: |
@@ -132,3 +173,7 @@ jobs:
           echo "Frontend Images:"
           echo "  - frontend-latest (current version: ${{ steps.version.outputs.CURRENT_RUN }})"
           echo "  - frontend-pv1 (previous version: ${{ steps.version.outputs.PREVIOUS_RUN }})"
+          echo ""
+          echo "Database Images:"
+          echo "  - db-latest (current version: ${{ steps.version.outputs.CURRENT_RUN }})"
+          echo "  - db-pv1 (previous version: ${{ steps.version.outputs.PREVIOUS_RUN }})"
