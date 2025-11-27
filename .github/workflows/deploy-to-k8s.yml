@@ -142,7 +142,8 @@ jobs:
           
           # Delete existing database deployment to fix immutable selector issue
           echo "🔧 Deleting existing database deployment to fix selector issue..."
-          kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig delete deployment postgresdb-deployment -n ${{ env.NAMESPACE }} --ignore-not-found=true
+          kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig delete deployment postgresdb-deployment -n ${{ env.NAMESPACE }} --ignore-not-found=true --force --grace-period=0 || true
+          echo "✅ Database deployment deletion attempted"
           
           echo "🔧 Applying Kubernetes manifests in order..."
           
