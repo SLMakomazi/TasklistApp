@@ -7,6 +7,11 @@ on:
       - completed
   workflow_dispatch:
 
+# Sets permissions of the GITHUB_TOKEN to allow deployment
+permissions:
+  contents: read
+  packages: read
+
 env:
   KUBE_CONFIG: ${{ github.workspace }}/kubeconfig
   NAMESPACE: tasklist
