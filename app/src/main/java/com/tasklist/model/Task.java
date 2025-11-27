@@ -12,6 +12,7 @@ public class Task {
     private Long id;
 
     private String title;
+    private String text; // Added for frontend compatibility
     private String description;
     private LocalDate dueDate;
     private boolean completed = false;

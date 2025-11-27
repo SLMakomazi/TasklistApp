@@ -2,19 +2,23 @@ const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080/api';
 
 export const getTasks = async () => {
   try {
+    console.log('Sending GET to API:', `${API_URL}/tasks`);
     const response = await fetch(`${API_URL}/tasks`);
     if (!response.ok) {
       throw new Error('Failed to fetch tasks');
     }
-    return await response.json();
+    const data = await response.json();
+    console.log('Task GET Success. Received tasks array length:', data.length);
+    return data;
   } catch (error) {
-    console.error('Error fetching tasks:', error);
+    console.error('Task GET Failed:', error);
     throw error;
   }
 };
 
 export const createTask = async (taskData) => {
   try {
+    console.log('Sending POST to API:', `${API_URL}/tasks`, 'with data:', taskData);
     const response = await fetch(`${API_URL}/tasks`, {
       method: 'POST',
       headers: {
@@ -25,9 +29,11 @@ export const createTask = async (taskData) => {
     if (!response.ok) {
       throw new Error('Failed to create task');
     }
-    return await response.json();
+    const createdTask = await response.json();
+    console.log('Task POST Success. Response:', createdTask);
+    return createdTask;
   } catch (error) {
-    console.error('Error creating task:', error);
+    console.error('Task POST Failed:', error);
     throw error;
   }
 };

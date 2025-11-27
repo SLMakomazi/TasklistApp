@@ -17,7 +17,12 @@ const TaskList = () => {
       setError(null);
       try {
         const data = await getTasks();
-        setTasks(data);
+        // Convert backend 'title' field to frontend 'text' field
+        const normalizedTasks = data.map(task => ({
+          ...task,
+          text: task.text || task.title // Use text if available, otherwise title
+        }));
+        setTasks(normalizedTasks);
       } catch (err) {
         console.error('Failed to load tasks:', err);
         setError('Failed to load tasks. Please try again later.');
@@ -37,7 +42,12 @@ const TaskList = () => {
     
     try {
       const createdTask = await createTask(taskToAdd);
-      setTasks([...tasks, createdTask]);
+      // Normalize the response to handle backend's title field
+      const normalizedTask = {
+        ...createdTask,
+        text: createdTask.text || createdTask.title // Use text if available, otherwise title
+      };
+      setTasks([...tasks, normalizedTask]);
       setNewTask('');
     } catch (err) {
       console.error('Failed to create task:', err);

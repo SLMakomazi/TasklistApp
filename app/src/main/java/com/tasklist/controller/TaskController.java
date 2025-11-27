@@ -2,6 +2,7 @@ package com.tasklist.controller;
 
 import com.tasklist.model.Task;
 import com.tasklist.repository.TaskRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -9,6 +10,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/tasks")
+@Slf4j
 public class TaskController {
 
     private final TaskRepository taskRepository;
@@ -20,7 +22,10 @@ public class TaskController {
     // List all tasks (sorted by due date)
     @GetMapping
     public List<Task> getAllTasks() {
-        return taskRepository.findAllByOrderByDueDateAsc();
+        log.info('Received request to get all tasks.');
+        List<Task> tasks = taskRepository.findAllByOrderByDueDateAsc();
+        log.info('Returning {} tasks from repository.', tasks.size());
+        return tasks;
     }
 
     // Filter by completion status
@@ -32,7 +37,15 @@ public class TaskController {
     // Create a new task
     @PostMapping
     public Task createTask(@RequestBody Task task) {
-        return taskRepository.save(task);
+        log.info('Received request to save task: {}', task);
+        // Handle frontend sending 'text' field instead of 'title'
+        if (task.getTitle() == null && task.getText() != null) {
+            task.setTitle(task.getText());
+        }
+        log.info('Attempting to save task to repository: {}', task);
+        Task savedTask = taskRepository.save(task);
+        log.info('Successfully saved task with ID: {}', savedTask.getId());
+        return savedTask;
     }
 
     // Get task by ID
