@@ -3,7 +3,7 @@ name: Deploy Infrastructure
 on:
   workflow_dispatch:
   workflow_run:
-    workflows: ["Backend CI - Build & Push Image"]
+    workflows: ["version-management"]
     types: [completed]
 
 jobs:

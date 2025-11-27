@@ -2,7 +2,7 @@ name: Version Management - Tag Images
 
 on:
   workflow_run:
-    workflows: ["Backend CI - Build & Push Image", "Frontend CI - Build & Push Image"]
+    workflows: ["Build & Push Images"]
     types:
       - completed
   workflow_dispatch:

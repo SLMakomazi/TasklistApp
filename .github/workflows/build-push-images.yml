@@ -1,4 +1,4 @@
-name: Backend CI - Build & Push Image
+name: Build & Push Images
 
 on:
   workflow_run:
@@ -7,13 +7,14 @@ on:
       - completed
   workflow_dispatch:
 
-jobs:
-  build-containers:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
+permissions:
+  contents: read
+  packages: write
 
+jobs:
+  build-and-push-images:
+    runs-on: ubuntu-latest
+    
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -50,7 +51,27 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Build and Push Frontend Container
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/slmakomazi/tasklistapp:frontend-${{ github.run_number }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            FRONTEND_API_URL=${{ secrets.FRONTEND_API_URL }}
+
+      - name: Show image info
+        run: |
+          echo "Successfully built and pushed the following images:"
+          echo "API: ghcr.io/slmakomazi/tasklistapp:api-${{ github.run_number }}"
+          echo "Database: ghcr.io/slmakomazi/tasklistapp:db-${{ github.run_number }}"
+          echo "Frontend: ghcr.io/slmakomazi/tasklistapp:frontend-${{ github.run_number }}"
+
       - name: Trigger Version Management
         run: |
-          echo "Backend build completed. Triggering version management..."
+          echo "All images built and pushed. Triggering version management..."
           echo "Build number: ${{ github.run_number }}"
