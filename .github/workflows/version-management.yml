@@ -1,0 +1,110 @@
+name: Version Management - Tag Images
+
+on:
+  workflow_run:
+    workflows: ["Backend CI - Build & Push Image", "Frontend CI - Build & Push Image"]
+    types:
+      - completed
+  workflow_dispatch:
+
+jobs:
+  manage-versions:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get current run number
+        id: version
+        run: |
+          echo "CURRENT_RUN=${{ github.run_number }}" >> $GITHUB_OUTPUT
+          echo "PREVIOUS_RUN=$(( ${{ github.run_number }} - 1 ))" >> $GITHUB_OUTPUT
+
+      - name: Retag previous version as pv1
+        run: |
+          echo "Retagging previous API version ${{ steps.version.outputs.PREVIOUS_RUN }} as pv1..."
+          
+          # Pull previous API image
+          docker pull ghcr.io/slmakomazi/tasklistapp:api-${{ steps.version.outputs.PREVIOUS_RUN }}
+          
+          # Retag as pv1
+          docker tag ghcr.io/slmakomazi/tasklistapp:api-${{ steps.version.outputs.PREVIOUS_RUN }} ghcr.io/slmakomazi/tasklistapp:api-pv1
+          
+          # Push pv1 tag
+          docker push ghcr.io/slmakomazi/tasklistapp:api-pv1
+          
+          echo "Retagging previous Frontend version ${{ steps.version.outputs.PREVIOUS_RUN }} as pv1..."
+          
+          # Pull previous frontend image
+          docker pull ghcr.io/slmakomazi/tasklistapp:frontend-${{ steps.version.outputs.PREVIOUS_RUN }}
+          
+          # Retag as pv1
+          docker tag ghcr.io/slmakomazi/tasklistapp:frontend-${{ steps.version.outputs.PREVIOUS_RUN }} ghcr.io/slmakomazi/tasklistapp:frontend-pv1
+          
+          # Push pv1 tag
+          docker push ghcr.io/slmakomazi/tasklistapp:frontend-pv1
+
+      - name: Ensure current version is tagged as latest
+        run: |
+          echo "Ensuring current version ${{ steps.version.outputs.CURRENT_RUN }} is tagged as latest..."
+          
+          # Pull current API image
+          docker pull ghcr.io/slmakomazi/tasklistapp:api-${{ steps.version.outputs.CURRENT_RUN }}
+          
+          # Tag as latest
+          docker tag ghcr.io/slmakomazi/tasklistapp:api-${{ steps.version.outputs.CURRENT_RUN }} ghcr.io/slmakomazi/tasklistapp:api-latest
+          
+          # Push latest tag
+          docker push ghcr.io/slmakomazi/tasklistapp:api-latest
+          
+          echo "Ensuring current Frontend version ${{ steps.version.outputs.CURRENT_RUN }} is tagged as latest..."
+          
+          # Pull current frontend image
+          docker pull ghcr.io/slmakomazi/tasklistapp:frontend-${{ steps.version.outputs.CURRENT_RUN }}
+          
+          # Tag as latest
+          docker tag ghcr.io/slmakomazi/tasklistapp:frontend-${{ steps.version.outputs.CURRENT_RUN }} ghcr.io/slmakomazi/tasklistapp:frontend-latest
+          
+          # Push latest tag
+          docker push ghcr.io/slmakomazi/tasklistapp:frontend-latest
+
+      - name: Clean up old numbered tags (keep only latest and pv1)
+        run: |
+          echo "Cleaning up old numbered tags older than pv1..."
+          
+          # Remove API tags older than pv1 (keep current and previous)
+          OLD_API_RUN=$(( ${{ github.run_number }} - 2 ))
+          if [ $OLD_API_RUN -gt 0 ]; then
+            echo "Removing API tag: api-$OLD_API_RUN"
+            docker rmi ghcr.io/slmakomazi/tasklistapp:api-$OLD_API_RUN || true
+          fi
+          
+          # Remove Frontend tags older than pv1 (keep current and previous)  
+          OLD_FRONTEND_RUN=$(( ${{ github.run_number }} - 2 ))
+          if [ $OLD_FRONTEND_RUN -gt 0 ]; then
+            echo "Removing Frontend tag: frontend-$OLD_FRONTEND_RUN"
+            docker rmi ghcr.io/slmakomazi/tasklistapp:frontend-$OLD_FRONTEND_RUN || true
+          fi
+
+      - name: Display current tags
+        run: |
+          echo "Current image tags after version management:"
+          echo ""
+          echo "API Images:"
+          echo "  - api-latest (current version: ${{ steps.version.outputs.CURRENT_RUN }})"
+          echo "  - api-pv1 (previous version: ${{ steps.version.outputs.PREVIOUS_RUN }})"
+          echo ""
+          echo "Frontend Images:"
+          echo "  - frontend-latest (current version: ${{ steps.version.outputs.CURRENT_RUN }})"
+          echo "  - frontend-pv1 (previous version: ${{ steps.version.outputs.PREVIOUS_RUN }})"

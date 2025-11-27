@@ -35,7 +35,6 @@ jobs:
           file: ./app/Dockerfile
           push: true
           tags: |
-            ghcr.io/slmakomazi/tasklistapp:api-latest
             ghcr.io/slmakomazi/tasklistapp:api-${{ github.run_number }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -47,7 +46,11 @@ jobs:
           file: ./database/Dockerfile
           push: true
           tags: |
-            ghcr.io/slmakomazi/tasklistapp:db-latest
             ghcr.io/slmakomazi/tasklistapp:db-${{ github.run_number }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Trigger Version Management
+        run: |
+          echo "Backend build completed. Triggering version management..."
+          echo "Build number: ${{ github.run_number }}"
