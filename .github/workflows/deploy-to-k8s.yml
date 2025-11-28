@@ -26,7 +26,7 @@ jobs:
     runs-on: [self-hosted, linux]
     env:
       KUBECONFIG: /home/siseko/microk8s-kubeconfig
-      NAMESPACE: tasklist
+      NAMESPACE: tasklistapp
       # Environment variables from GitHub secrets
       DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
       DB_USERNAME: ${{ secrets.DB_USERNAME }}
@@ -140,21 +140,23 @@ jobs:
           fi
           echo "✅ Kubernetes manifests found"
           
-          # Delete existing database deployment to fix immutable selector issue
-          echo "🔧 Deleting existing database deployment to fix selector issue..."
-          kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig delete deployment postgresdb-deployment -n ${{ env.NAMESPACE }} --ignore-not-found=true --force --grace-period=0 || true
-          
-          # Wait for deployment to be fully deleted
-          echo "⏳ Waiting for deployment to be fully deleted..."
-          kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig wait --for=delete deployment/postgresdb-deployment -n ${{ env.NAMESPACE }} --timeout=60s || true
-          
-          # Check if ArgoCD is recreating 
-          echo "🔍 Checking if deployment still exists (ArgoCD might recreate it)..."
+          # Check if database deployment exists and has selector issues
+          echo "� Checking database deployment status..."
           if kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig get deployment postgresdb-deployment -n ${{ env.NAMESPACE }} >/dev/null 2>&1; then
-            echo "⚠️ Deployment still exists - likely managed by ArgoCD"
-            echo "🔧 Temporarily scaling down to 0 replicas..."
-            kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig scale deployment postgresdb-deployment -n ${{ env.NAMESPACE }} --replicas=0 || true
-            sleep 10
+            echo "⚠️ Database deployment exists - checking if managed by ArgoCD"
+            
+            # Check if it has ArgoCD annotations
+            ARGOCD_LABEL=$(kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig get deployment postgresdb-deployment -n ${{ env.NAMESPACE }} -o jsonpath='{.metadata.labels.app\.kubernetes\.io/managed-by}' 2>/dev/null || echo "")
+            
+            if [ "$ARGOCD_LABEL" = "argocd" ]; then
+              echo "🎯 Deployment is managed by ArgoCD - scaling down instead of deleting"
+              kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig scale deployment postgresdb-deployment -n ${{ env.NAMESPACE }} --replicas=0 || true
+              sleep 15
+            else
+              echo "🔧 Deployment not managed by ArgoCD - attempting deletion"
+              kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig delete deployment postgresdb-deployment -n ${{ env.NAMESPACE }} --ignore-not-found=true --force --grace-period=0 || true
+              sleep 10
+            fi
           fi
           
           echo "✅ Database deployment deletion completed"
@@ -265,19 +267,19 @@ jobs:
           
           # Wait for pods to be ready
           echo "⏳ Waiting for pods to be ready..."
-          kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig wait --for=condition=ready pod -l app=tasklistapp -n ${{ env.NAMESPACE }} --timeout=300s || true
-          kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig wait --for=condition=ready pod -l app=tasklist-postgresql -n ${{ env.NAMESPACE }} --timeout=300s || true
+          kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig wait --for=condition=ready pod -l app=tasklistapi -n ${{ env.NAMESPACE }} --timeout=300s || true
+          kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig wait --for=condition=ready pod -l app=postgresdb -n ${{ env.NAMESPACE }} --timeout=300s || true
           
           # Get API endpoint
           API_ENDPOINT=""
           
           # Try NodePort first
-          NODEPORT=$(kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig get svc tasklistapp-service -n ${{ env.NAMESPACE }} -o jsonpath='{.spec.ports[?(@.name=="http")].nodePort}' 2>/dev/null || echo "")
+          NODEPORT=$(kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig get svc tasklistapi-service -n ${{ env.NAMESPACE }} -o jsonpath='{.spec.ports[?(@.name=="http")].nodePort}' 2>/dev/null || echo "")
           if [ -n "$NODEPORT" ]; then
             API_ENDPOINT="http://$(hostname -I | awk '{print $1}'):$NODEPORT/api"
           else
             # Try Ingress
-            INGRESS_HOST=$(kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig get ingress tasklist-ingress -n ${{ env.NAMESPACE }} -o jsonpath='{.spec.rules[0].host}' 2>/dev/null || echo "")
+            INGRESS_HOST=$(kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig get ingress frontend-ingress -n ${{ env.NAMESPACE }} -o jsonpath='{.spec.rules[0].host}' 2>/dev/null || echo "")
             if [ -n "$INGRESS_HOST" ]; then
               API_ENDPOINT="http://$INGRESS_HOST/api"
             fi
