@@ -216,10 +216,9 @@ jobs:
           # Configure ArgoCD with NodePort for external access
           kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig patch svc argocd-server -n argocd -p '{"spec":{"type":"NodePort","ports":[{"name":"http","port":80,"targetPort":8080,"nodePort":30007},{"name":"https","port":443,"targetPort":8080,"nodePort":30008}]}}'
           
-          # Set ArgoCD admin password using static bcrypt hash for "admin123"
-          PASSWORD_HASH='$2a$10$rH3sY2x1Jp8W8X8JQ9vZ0OeJ8Xk8J9Z8vY0J9vY0J9vY0J9vY0J9vY0'
+          # Set ArgoCD admin password using plain text
           kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig -n argocd patch secret argocd-secret \
-            -p '{"stringData": {"admin.password": "'$PASSWORD_HASH'", "admin.passwordMtime": "'$(date +%s)'"}}'
+            -p '{"stringData": {"admin.password": "admin123", "admin.passwordMtime": "'$(date +%s)'"}}'
           
           echo "✅ ArgoCD installed and configured"
           echo "🔗 ArgoCD will be available at: http://$(hostname -I | awk '{print $1}'):30007"
