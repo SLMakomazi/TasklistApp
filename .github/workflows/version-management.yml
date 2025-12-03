@@ -25,11 +25,12 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Get current run number
+      - name: Get build workflow run number
         id: version
         run: |
-          echo "CURRENT_RUN=${{ github.run_number }}" >> $GITHUB_OUTPUT
-          echo "PREVIOUS_RUN=$(( ${{ github.run_number }} - 1 ))" >> $GITHUB_OUTPUT
+          # Use the build workflow's run number from the trigger
+          echo "CURRENT_RUN=${{ github.event.workflow_run.run_number }}" >> $GITHUB_OUTPUT
+          echo "PREVIOUS_RUN=$(( ${{ github.event.workflow_run.run_number }} - 1 ))" >> $GITHUB_OUTPUT
 
       - name: Retag previous version as pv1
         run: |
