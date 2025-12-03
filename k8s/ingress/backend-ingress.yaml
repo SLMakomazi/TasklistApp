@@ -12,19 +12,17 @@ metadata:
     nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization"
     nginx.ingress.kubernetes.io/cors-expose-headers: "Content-Length,Content-Range"
     nginx.ingress.kubernetes.io/proxy-body-size: "0"
-    # Uncomment this for production with cert-manager
-    # cert-manager.io/cluster-issuer: "letsencrypt-prod"
 spec:
   ingressClassName: nginx
   tls:
     - hosts:
         - api.tasklistapp.local
-      secretName: local-tls  # Change to 'tasklistapi-tls' for production
+      secretName: local-tls
   rules:
     - host: api.tasklistapp.local
       http:
         paths:
-          - path: /api
+          - path: /
             pathType: Prefix
             backend:
               service:

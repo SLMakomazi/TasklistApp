@@ -4,17 +4,17 @@ metadata:
   name: tasklistapi-service
   namespace: tasklistapp
   labels:
-    app: tasklistapi
+    app: tasklistapp
     tier: backend
-    app.kubernetes.io/name: tasklistapi
-    app.kubernetes.io/instance: tasklistapi
+    app.kubernetes.io/name: tasklistapp
+    app.kubernetes.io/instance: tasklistapp
     app.kubernetes.io/component: backend
     app.kubernetes.io/part-of: tasklistapp
     app.kubernetes.io/managed-by: argocd
 spec:
   type: ClusterIP
   selector:
-    app: tasklistapi  # Matches the running tasklistapi pods
+    app: tasklistapp   # Matches the running backend pods
   ports:
     - name: http
       port: 80
