@@ -19,10 +19,10 @@ spec:
   ingressClassName: nginx
   tls:
     - hosts:
-        - api.tasklistapi.local
+        - api.tasklistapp.local
       secretName: local-tls  # Change to 'tasklistapi-tls' for production
   rules:
-    - host: api.tasklistapi.local
+    - host: api.tasklistapp.local
       http:
         paths:
           - path: /api
