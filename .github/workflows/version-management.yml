@@ -105,20 +105,22 @@ jobs:
           
           echo "Ensuring current Frontend version ${{ steps.version.outputs.CURRENT_RUN }} is tagged as latest..."
           
-          # Check if current Frontend image exists before pulling
-          if docker manifest inspect ghcr.io/slmakomazi/tasklistapp:frontend-${{ steps.version.outputs.CURRENT_RUN }} >/dev/null 2>&1; then
-            echo "Current Frontend image found, tagging as latest..."
-            # Pull current frontend image
+          # Tag current Frontend version as latest
+          echo "Tagging Frontend version ${{ steps.version.outputs.CURRENT_RUN }} as latest..."
+          # Pull current frontend image
+          docker pull ghcr.io/slmakomazi/tasklistapp:frontend-${{ steps.version.outputs.CURRENT_RUN }} || echo "Pull failed, trying direct tag..."
+          
+          # Tag as latest
+          docker tag ghcr.io/slmakomazi/tasklistapp:frontend-${{ steps.version.outputs.CURRENT_RUN }} ghcr.io/slmakomazi/tasklistapp:frontend-latest || echo "Tag failed, trying direct pull and tag..."
+          
+          # If tag failed, try pulling and tagging again
+          if ! docker images | grep "frontend-latest" >/dev/null 2>&1; then
             docker pull ghcr.io/slmakomazi/tasklistapp:frontend-${{ steps.version.outputs.CURRENT_RUN }}
-            
-            # Tag as latest
             docker tag ghcr.io/slmakomazi/tasklistapp:frontend-${{ steps.version.outputs.CURRENT_RUN }} ghcr.io/slmakomazi/tasklistapp:frontend-latest
-            
-            # Push latest tag
-            docker push ghcr.io/slmakomazi/tasklistapp:frontend-latest
-          else
-            echo "Current Frontend image not found, skipping latest tag"
           fi
+          
+          # Push latest tag
+          docker push ghcr.io/slmakomazi/tasklistapp:frontend-latest
           
           echo "Ensuring current Database version ${{ steps.version.outputs.CURRENT_RUN }} is tagged as latest..."
           
