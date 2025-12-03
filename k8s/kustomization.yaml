@@ -61,13 +61,15 @@ patches:
       - op: replace
         path: /spec/selector/matchLabels
         value:
-          app: frontend
+          app: tasklistapp
+          tier: frontend
       - op: replace
         path: /spec/template/metadata/labels
         value:
-          app: frontend
-          app.kubernetes.io/name: frontend
-          app.kubernetes.io/instance: frontend
+          app: tasklistapp
+          tier: frontend
+          app.kubernetes.io/name: tasklistapp-frontend
+          app.kubernetes.io/instance: tasklistapp-frontend
           app.kubernetes.io/version: "1.0.0"
       - op: add
         path: /spec/template/spec/imagePullSecrets
