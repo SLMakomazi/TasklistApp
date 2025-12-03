@@ -41,7 +41,7 @@ spec:
       containers:
         - name: tasklistapi
           image: ghcr.io/slmakomazi/tasklistapp:api-latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           ports:
             - name: http
               containerPort: 8080
