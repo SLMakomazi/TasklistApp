@@ -37,7 +37,7 @@ spec:
         - name: ghcr-secret
       containers:
       - name: frontend
-        image: ghcr.io/slmakomazi/tasklistapp-frontend:latest
+        image: ghcr.io/slmakomazi/tasklistapp:frontend-latest
         imagePullPolicy: Always
         ports:
         - name: http

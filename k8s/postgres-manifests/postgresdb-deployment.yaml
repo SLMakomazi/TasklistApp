@@ -31,7 +31,7 @@ spec:
       containers:
       - name: postgresql
         # Use your GHCR custom image here
-        image: postgres:15-alpine
+        image: ghcr.io/slmakomazi/tasklistapp:db-latest
         imagePullPolicy: Always
         ports:
         - name: postgresql

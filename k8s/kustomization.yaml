@@ -43,11 +43,14 @@ commonAnnotations:
 # Image overrides
 images:
   - name: ghcr.io/slmakomazi/tasklistapp-frontend
-    newName: ghcr.io/slmakomazi/tasklistapp-frontend
-    newTag: latest
+    newName: ghcr.io/slmakomazi/tasklistapp
+    newTag: frontend-latest
   - name: ghcr.io/slmakomazi/tasklistapp
     newName: ghcr.io/slmakomazi/tasklistapp
     newTag: api-latest
+  - name: postgres
+    newName: ghcr.io/slmakomazi/tasklistapp
+    newTag: db-latest
 
 # Deployment patches
 patches:
