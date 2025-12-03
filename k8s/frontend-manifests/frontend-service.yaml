@@ -13,7 +13,8 @@ metadata:
     app.kubernetes.io/managed-by: argocd
 spec:
   selector:
-    app: frontend  # Matches the running frontend pods
+    app: tasklistapp  # Matches the running frontend pods
+    tier: frontend
   ports:
   - name: http
     port: 80
