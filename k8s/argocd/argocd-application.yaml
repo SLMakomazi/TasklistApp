@@ -27,10 +27,7 @@ spec:
     server: https://kubernetes.default.svc
     namespace: tasklistapp
   syncPolicy:
-    automated:
-      prune: false
-      selfHeal: false
-      allowEmpty: false
+    automated: null
     syncOptions:
       - CreateNamespace=true
       - PruneLast=true
