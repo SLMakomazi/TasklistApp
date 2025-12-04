@@ -58,6 +58,9 @@ spec:
         - name: SERVER_PORT
           value: "5432"
         volumeMounts:
+        - name: postgres-hba
+          mountPath: /var/lib/postgresql/data/pg_hba.conf
+          subPath: pg_hba.conf
         - name: postgres-storage
           mountPath: /var/lib/postgresql/data
         - name: tasklist-logs
@@ -92,6 +95,9 @@ spec:
             cpu: 200m
             memory: 512Mi
       volumes:
+      - name: postgres-hba
+        configMap:
+          name: postgres-hba
       - name: postgres-storage
         persistentVolumeClaim:
           claimName: postgresdb-pvc

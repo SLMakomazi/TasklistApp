@@ -9,6 +9,7 @@ resources:
   
   # Postgres resources
   - postgres-manifests/postgresdb-configmap.yaml
+  - postgres-manifests/postgres-hba-configmap.yaml
   - postgres-manifests/postgresdb-service.yaml
   - postgres-manifests/postgresdb-deployment.yaml
   - postgres-manifests/postgresdb-pvc.yaml
