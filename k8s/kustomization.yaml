@@ -40,17 +40,7 @@ commonLabels:
 commonAnnotations:
   argocd.argoproj.io/sync-options: PruneLast=true
 
-# Image overrides
-images:
-  - name: ghcr.io/slmakomazi/tasklistapp-frontend
-    newName: ghcr.io/slmakomazi/tasklistapp
-    newTag: frontend-latest
-  - name: ghcr.io/slmakomazi/tasklistapp
-    newName: ghcr.io/slmakomazi/tasklistapp
-    newTag: api-latest
-  - name: postgres
-    newName: ghcr.io/slmakomazi/tasklistapp
-    newTag: db-latest
+# Image overrides - removed as they conflict with each other
 
 # Deployment patches
 patches:
