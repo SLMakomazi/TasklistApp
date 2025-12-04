@@ -33,6 +33,10 @@ spec:
         # Use your GHCR custom image here
         image: ghcr.io/slmakomazi/tasklistapp:db-latest
         imagePullPolicy: Always
+        command:
+          - "postgres"
+          - "-c"
+          - "config_file=/etc/postgresql/postgresql.conf"
         ports:
         - name: postgresql
           containerPort: 5432
@@ -59,7 +63,10 @@ spec:
           value: "5432"
         volumeMounts:
         - name: postgres-hba
-          mountPath: /var/lib/postgresql/data/pg_hba.conf
+          mountPath: /etc/postgresql/postgresql.conf
+          subPath: postgresql.conf
+        - name: postgres-hba
+          mountPath: /etc/postgresql/pg_hba.conf
           subPath: pg_hba.conf
         - name: postgres-storage
           mountPath: /var/lib/postgresql/data
