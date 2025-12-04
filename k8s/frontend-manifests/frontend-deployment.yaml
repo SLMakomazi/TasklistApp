@@ -78,6 +78,8 @@ spec:
           mountPath: /var/run
         - name: nginx-logs
           mountPath: /var/log/nginx
+        - name: tasklist-logs
+          mountPath: /opt/tasklist/logs
         livenessProbe:
           httpGet:
             path: /healthz
@@ -108,6 +110,8 @@ spec:
       - name: nginx-run
         emptyDir: {}
       - name: nginx-logs
+        emptyDir: {}
+      - name: tasklist-logs
         emptyDir: {}
       securityContext:
         fsGroup: 1000
