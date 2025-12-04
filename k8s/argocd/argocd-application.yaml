@@ -28,8 +28,8 @@ spec:
     namespace: tasklistapp
   syncPolicy:
     automated:
-      prune: true
-      selfHeal: true
+      prune: false
+      selfHeal: false
       allowEmpty: false
     syncOptions:
       - CreateNamespace=true
