@@ -152,9 +152,26 @@ jobs:
         run: |
           echo "🔄 Installing ArgoCD..."
           
-          # Install ArgoCD using fixed kubeconfig
-          kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig create namespace argocd --dry-run=client -o yaml | kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig apply -f -
-          kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+          # Install ArgoCD using fixed kubeconfig if not already installed
+          if ! kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig get namespace argocd >/dev/null 2>&1; then
+            kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig create namespace argocd
+            kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+          else
+            echo "🔁 ArgoCD already installed — skipping re-install"
+          fi
+
+      - name: Apply Fixed ArgoCD Admin Password
+        run: |
+          echo "🔐 Applying consistent ArgoCD admin password..."
+
+          # Base64 bcrypt hash for password: admin
+          FIXED_HASH="JDJiJDEwJEtNQlNlc0N1Z29QZUQ3UTdqUGN5a082TVUuS0dhWFdWRWNaMjlQaVYuY3k3NXYxSE54cnl1"
+
+          # Patch secret (idempotent — safe to run every workflow)
+          kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig -n argocd patch secret argocd-secret \
+            -p "{\"data\": {\"admin.password\": \"${FIXED_HASH}\", \"admin.passwordMtime\": \"$(date +%s | base64)\"}}"
+
+          echo "✅ ArgoCD admin password set to: admin"
 
       - name: Wait for ArgoCD to be ready
         run: |
@@ -226,25 +243,25 @@ jobs:
           echo "🔑 Password: $ARGOCD_PASSWORD"
           
           # Create application namespace
-          if kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig get namespace tasklist >/dev/null 2>&1; then
+          if kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig get namespace tasklistapp >/dev/null 2>&1; then
             echo "✅ Application namespace already exists"
           else
             echo "🔧 Creating application namespace..."
-            kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig create namespace tasklist
+            kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig create namespace tasklistapp
           fi
           
           echo "✅ Infrastructure setup completed"
 
       - name: Create ArgoCD Application
         run: |
-          echo "🎯 Creating ArgoCD application for tasklist-app..."
+          echo "🎯 Creating ArgoCD application for tasklistapp..."
           
           # Apply ArgoCD application manifest with fixed kubeconfig
           kubectl --kubeconfig=/home/siseko/microk8s-kubeconfig apply -f - << 'EOF'
           apiVersion: argoproj.io/v1alpha1
           kind: Application
           metadata:
-            name: tasklist-app
+            name: tasklistapp
             namespace: argocd
           spec:
             project: default
@@ -254,7 +271,7 @@ jobs:
               path: k8s
             destination:
               server: https://kubernetes.default.svc
-              namespace: tasklist
+              namespace: tasklistapp
             syncPolicy:
               automated:
                 prune: true

@@ -152,7 +152,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: tasklist-postgres-pvc
-  namespace: tasklist
+  namespace: tasklistapp
 spec:
   accessModes: [ReadWriteOnce]
   storageClassName: microk8s-hostpath  # Uses MicroK8s default storage
@@ -175,7 +175,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: tasklistapp-service
-  namespace: tasklist
+  namespace: tasklistapp
 spec:
   selector:
     app: tasklistapp  # Matches deployment labels
@@ -199,7 +199,7 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: tasklist-ingress
-  namespace: tasklist
+  namespace: tasklistapp
   annotations:
     kubernetes.io/ingress.class: "public"  # MicroK8s ingress controller
 spec:

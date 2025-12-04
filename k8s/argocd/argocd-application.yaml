@@ -11,7 +11,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/slmakomazi/TasklistApp.git
+    repoURL: https://github.com/SLMakomazi/TasklistApp.git
     targetRevision: HEAD
     path: k8s
     kustomize:
