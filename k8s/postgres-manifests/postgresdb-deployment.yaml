@@ -28,6 +28,10 @@ spec:
         app.kubernetes.io/part-of: tasklistapp
         app.kubernetes.io/managed-by: argocd
     spec:
+      securityContext:
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
       containers:
       - name: postgresql
         # Use your GHCR custom image here
@@ -37,6 +41,9 @@ spec:
           - "postgres"
           - "-c"
           - "config_file=/etc/postgresql/postgresql.conf"
+        securityContext:
+          runAsUser: 999
+          runAsGroup: 999
         ports:
         - name: postgresql
           containerPort: 5432
@@ -105,6 +112,7 @@ spec:
       - name: postgres-hba
         configMap:
           name: postgres-hba
+          defaultMode: 0640
       - name: postgres-storage
         persistentVolumeClaim:
           claimName: postgresdb-pvc
