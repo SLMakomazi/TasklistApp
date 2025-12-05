@@ -343,8 +343,16 @@ jobs:
           
           # Create results directory in home folder
           RESULTS_DIR=~/tasklistapp-performance
-          mkdir -p "$RESULTS_DIR"
-          cd "$RESULTS_DIR"
+          REPORT_DIR="$RESULTS_DIR/report"
+          
+          # Clean up existing report directory if it exists
+          if [ -d "$REPORT_DIR" ]; then
+            echo "🧹 Cleaning existing report directory..."
+            rm -rf "$REPORT_DIR"/*
+          else
+            echo "📁 Report directory does not exist. Creating it..."
+            mkdir -p "$REPORT_DIR"
+          fi
           
           # Get node IP
           NODE_IP=$(hostname -I | awk '{print $1}')
@@ -364,17 +372,17 @@ jobs:
             -J HOST=${NODE_IP} \
             -J PORT=${NODE_PORT} \
             -J PROTOCOL=http \
-            -l results.jtl \
-            -e -o report
+            -l "$RESULTS_DIR/results.jtl" \
+            -e -o "$REPORT_DIR"
           
           echo "✅ JMeter test execution complete"
-          echo "📁 HTML Report generated at: $RESULTS_DIR/report"
+          echo "📁 HTML Report generated at: $REPORT_DIR"
           
           # List files for debugging
           echo "📂 Contents of $RESULTS_DIR:"
           ls -la "$RESULTS_DIR"
-          echo "📂 Contents of $RESULTS_DIR/report:"
-          ls -la "$RESULTS_DIR/report" || echo "⚠️ Report directory not found"
+          echo "📂 Contents of $REPORT_DIR:"
+          ls -la "$REPORT_DIR" || echo "⚠️ Report directory not found"
 
       - name: Upload HTML Performance Report
         uses: actions/upload-artifact@v4
