@@ -67,10 +67,10 @@
               <encoding>false</encoding>
               <assertions>true</assertions>
               <subresults>true</subresults>
-              <requestData>false</requestData>
-              <responseData>false</responseData>
-              <responseHeaders>false</responseHeaders>
-              <requestHeaders>false</requestHeaders>
+              <requestData>true</requestData>
+              <responseData>true</responseData>
+              <responseHeaders>true</responseHeaders>
+              <requestHeaders>true</requestHeaders>
               <responseDataOnError>false</responseDataOnError>
               <saveAssertionResultsFailureMessage>true</saveAssertionResultsFailureMessage>
               <assertionsResultsToSave>0</assertionsResultsToSave>
