@@ -293,6 +293,32 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Install JMeter 5.6.3 if needed
+        run: |
+          # Check if JMeter 5.6.3 is already installed
+          if command -v jmeter >/dev/null 2>&1 && jmeter -v | grep -q '5.6.3'; then
+            echo "✅ JMeter 5.6.3 is already installed"
+            jmeter -v
+            exit 0
+          fi
+
+          echo "⬇️ Downloading JMeter 5.6.3..."
+          wget -q https://dlcdn.apache.org//jmeter/binaries/apache-jmeter-5.6.3.tgz
+          
+          echo "📦 Extracting JMeter..."
+          tar -xzf apache-jmeter-5.6.3.tgz
+          
+          echo "🚀 Installing JMeter to /opt/jmeter..."
+          sudo rm -rf /opt/jmeter  # Clean up any existing installation
+          sudo mv apache-jmeter-5.6.3 /opt/jmeter
+          sudo ln -sf /opt/jmeter/bin/jmeter /usr/local/bin/jmeter
+          
+          echo "✅ JMeter installed:"
+          jmeter -v
+          
+          # Clean up
+          rm -f apache-jmeter-5.6.3.tgz
+
       - name: Setup JMeter Test Plan
         run: |
           echo "📂 Setting up JMeter test plan..."
