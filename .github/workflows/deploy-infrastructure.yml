@@ -315,9 +315,10 @@ jobs:
         run: |
           echo "🚀 Running JMeter tests..."
           
-          # Create results directory
-          mkdir -p /opt/tasklistapp/performance
-          cd /opt/tasklistapp/performance
+          # Create results directory in home folder
+          RESULTS_DIR=~/tasklistapp-performance
+          mkdir -p "$RESULTS_DIR"
+          cd "$RESULTS_DIR"
           
           # Get node IP
           NODE_IP=$(hostname -I | awk '{print $1}')
@@ -341,21 +342,29 @@ jobs:
             -e -o report
           
           echo "✅ JMeter test execution complete"
-          echo "📁 HTML Report generated at: /opt/tasklistapp/performance/report"
+          echo "📁 HTML Report generated at: $RESULTS_DIR/report"
+          
+          # List files for debugging
+          echo "📂 Contents of $RESULTS_DIR:"
+          ls -la "$RESULTS_DIR"
+          echo "📂 Contents of $RESULTS_DIR/report:"
+          ls -la "$RESULTS_DIR/report" || echo "⚠️ Report directory not found"
 
       - name: Upload HTML Performance Report
         uses: actions/upload-artifact@v4
         with:
           name: jmeter-performance-report
-          path: /opt/tasklistapp/performance/report
+          path: ~/tasklistapp-performance/report
           retention-days: 5
+          if-no-files-found: error
 
       - name: Upload JMeter Results
         uses: actions/upload-artifact@v4
         with:
           name: jmeter-raw-results
-          path: /opt/tasklistapp/performance/results.jtl
+          path: ~/tasklistapp-performance/results.jtl
           retention-days: 5
+          if-no-files-found: error
 
   # Original upload kubeconfig job
   upload-kubeconfig:
