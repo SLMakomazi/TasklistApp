@@ -12,11 +12,12 @@ metadata:
     app.kubernetes.io/part-of: tasklistapp
     app.kubernetes.io/managed-by: argocd
 spec:
-  type: ClusterIP
+  type: NodePort
   selector:
     app: tasklistapp   # Matches the running backend pods
   ports:
     - name: http
       port: 80
       targetPort: 8080
+      nodePort: 30080   # Accessible at <NODE_IP>:30080
       protocol: TCP

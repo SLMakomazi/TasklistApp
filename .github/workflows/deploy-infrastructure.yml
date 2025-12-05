@@ -283,6 +283,73 @@ jobs:
           echo "✅ ArgoCD application created"
           echo "🔗 ArgoCD will automatically sync the k8s directory"
 
+  performance-tests:
+    name: Run JMeter Performance Tests
+    runs-on: [self-hosted, linux]
+    needs: deploy-infrastructure
+    if: always()  # Run even if previous steps failed
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run JMeter Test Plan
+        run: |
+          echo "🚀 Running JMeter tests..."
+
+          # Create directory for test results
+          mkdir -p /opt/tasklistapp/performance
+          cd /opt/tasklistapp/performance
+
+          # Get the node IP (use the VM's IP since we're using NodePort)
+          NODE_IP=$(hostname -I | awk '{print $1}')
+          # Use the fixed NodePort we defined in the service
+          NODE_PORT=30080
+          
+          echo "🔍 Service URL: http://${NODE_IP}:${NODE_PORT}/api/tasks"
+
+          echo "📡 Testing endpoint: http://${NODE_IP}:${NODE_PORT}/api/tasks"
+
+          # Wait for the service to be available
+          until curl -s "http://${NODE_IP}:${NODE_PORT}/api/tasks" >/dev/null; do
+            echo "Waiting for application to be ready..."
+            sleep 5
+          done
+
+          # Run JMeter test with parameters
+          jmeter -n \
+            -t ${{ github.workspace }}/jmeter/test-plans/api-load-test.jmx \
+            -J HOST=${NODE_IP} \
+            -J PORT=${NODE_PORT} \
+            -J PROTOCOL=http \
+            -l results.jtl \
+            -e -o report
+
+          echo "✅ JMeter test execution complete"
+          echo "📁 HTML Report generated at: /opt/tasklistapp/performance/report"
+
+      - name: Upload HTML Performance Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: jmeter-performance-report
+          path: /opt/tasklistapp/performance/report
+          retention-days: 5
+
+      - name: Upload JMeter Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: jmeter-raw-results
+          path: /opt/tasklistapp/performance/results.jtl
+          retention-days: 5
+
+  # Original upload kubeconfig job
+  upload-kubeconfig:
+    name: Upload Kubeconfig
+    runs-on: [self-hosted, linux]
+    needs: deploy-infrastructure
+    if: always()
+
+    steps:
       - name: Upload kubeconfig
         if: always()
         uses: actions/upload-artifact@v4
