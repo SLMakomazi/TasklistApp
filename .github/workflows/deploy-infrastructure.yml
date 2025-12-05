@@ -345,13 +345,19 @@ jobs:
           RESULTS_DIR=~/tasklistapp-performance
           REPORT_DIR="$RESULTS_DIR/report"
           
-          # Clean up existing report directory if it exists
+          # Clean up existing report directory and results file
           if [ -d "$REPORT_DIR" ]; then
             echo "🧹 Cleaning existing report directory..."
             rm -rf "$REPORT_DIR"/*
           else
             echo "📁 Report directory does not exist. Creating it..."
             mkdir -p "$REPORT_DIR"
+          fi
+          
+          # Remove existing results file if it exists
+          if [ -f "$RESULTS_DIR/results.jtl" ]; then
+            echo "🧹 Removing existing results.jtl file..."
+            rm -f "$RESULTS_DIR/results.jtl"
           fi
           
           # Get node IP
