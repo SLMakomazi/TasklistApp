@@ -293,38 +293,53 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Setup JMeter Test Plan
+        run: |
+          echo "📂 Setting up JMeter test plan..."
+          
+          # Create directory structure if it doesn't exist
+          mkdir -p ~/jmeter/test-plans
+          
+          # Copy test plan from repository root to home directory
+          if [ -f "${{ github.workspace }}/jmeter/test-plans/api-load-test.jmx" ]; then
+            mkdir -p ~/jmeter/test-plans
+            cp "${{ github.workspace }}/jmeter/test-plans/api-load-test.jmx" ~/jmeter/test-plans/
+            echo "✅ Copied JMeter test plan from repository to ~/jmeter/test-plans/"
+          else
+            echo "❌ JMeter test plan not found in repository!"
+            echo "Expected path: ${{ github.workspace }}/jmeter/test-plans/api-load-test.jmx"
+            exit 1
+          fi
+
       - name: Run JMeter Test Plan
         run: |
           echo "🚀 Running JMeter tests..."
-
-          # Create directory for test results
+          
+          # Create results directory
           mkdir -p /opt/tasklistapp/performance
           cd /opt/tasklistapp/performance
-
-          # Get the node IP (use the VM's IP since we're using NodePort)
+          
+          # Get node IP
           NODE_IP=$(hostname -I | awk '{print $1}')
-          # Use the fixed NodePort we defined in the service
           NODE_PORT=30080
           
-          echo "🔍 Service URL: http://${NODE_IP}:${NODE_PORT}/api/tasks"
-
-          echo "📡 Testing endpoint: http://${NODE_IP}:${NODE_PORT}/api/tasks"
-
-          # Wait for the service to be available
+          echo "🔍 Testing endpoint: http://${NODE_IP}:${NODE_PORT}/api/tasks"
+          
+          # Wait for service to be available
           until curl -s "http://${NODE_IP}:${NODE_PORT}/api/tasks" >/dev/null; do
-            echo "Waiting for application to be ready..."
+            echo "⏳ Waiting for application to be ready..."
             sleep 5
           done
-
-          # Run JMeter test with parameters
+          
+          # Run JMeter test
           jmeter -n \
-            -t ${{ github.workspace }}/jmeter/test-plans/api-load-test.jmx \
+            -t ~/jmeter/test-plans/api-load-test.jmx \
             -J HOST=${NODE_IP} \
             -J PORT=${NODE_PORT} \
             -J PROTOCOL=http \
             -l results.jtl \
             -e -o report
-
+          
           echo "✅ JMeter test execution complete"
           echo "📁 HTML Report generated at: /opt/tasklistapp/performance/report"
 
